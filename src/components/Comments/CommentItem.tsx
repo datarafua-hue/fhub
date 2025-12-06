@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { marked } from 'marked';
-import DOMPurify from 'isomorphic-dompurify';
 import type { CommentWithProfile } from '../../types/supabase';
 import CommentForm from './CommentForm';
 
@@ -26,16 +25,30 @@ export default function CommentItem({
   const [isReplying, setIsReplying] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showReplies, setShowReplies] = useState(true);
+  const [sanitizedHtml, setSanitizedHtml] = useState('');
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const isOwner = currentUserId === comment.user_id;
   const canEdit = isOwner && new Date(comment.created_at) > new Date(Date.now() - 15 * 60 * 1000);
   const canDelete = isOwner || isAdmin;
 
-  // Render Markdown safely
-  const renderMarkdown = (content: string) => {
-    const html = marked(content, { breaks: true });
-    return DOMPurify.sanitize(html as string);
-  };
+  // Render Markdown safely - only on client side
+  useEffect(() => {
+    const renderMarkdown = async () => {
+      const html = marked(comment.content, { breaks: true }) as string;
+      
+      // Only use DOMPurify on client side
+      if (typeof window !== 'undefined') {
+        const DOMPurify = (await import('dompurify')).default;
+        setSanitizedHtml(DOMPurify.sanitize(html));
+      } else {
+        // On server, just use plain HTML (will be sanitized on client)
+        setSanitizedHtml(html);
+      }
+    };
+    
+    renderMarkdown();
+  }, [comment.content]);
 
   const handleDelete = async () => {
     if (!confirm('Вы уверены, что хотите удалить этот комментарий?')) {
@@ -130,8 +143,9 @@ export default function CommentItem({
           ) : (
             <>
               <div
+                ref={contentRef}
                 className="prose prose-invert prose-sm max-w-none text-gray-100"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(comment.content) }}
+                dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
               />
 
               {/* Actions */}
