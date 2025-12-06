@@ -284,7 +284,7 @@ const tagColors: Record<string, string> = {
 	<div class="max-w-4xl">
 		<CommentSection 
 			client:load
-			postSlug={post.slug}
+			postSlug={post.data.customSlug || post.slug}
 			locale={locale}
 			currentUserId={Astro.locals.user?.id}
 			isAdmin={Astro.locals.profile?.is_admin || false}
