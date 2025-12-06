@@ -50,6 +50,7 @@ export interface Database {
           user_id: string
           parent_id: string | null
           content: string
+          original_language: string
           is_approved: boolean
           is_deleted: boolean
           created_at: string
@@ -61,6 +62,7 @@ export interface Database {
           user_id: string
           parent_id?: string | null
           content: string
+          original_language?: string
           is_approved?: boolean
           is_deleted?: boolean
           created_at?: string
@@ -72,6 +74,7 @@ export interface Database {
           user_id?: string
           parent_id?: string | null
           content?: string
+          original_language?: string
           is_approved?: boolean
           is_deleted?: boolean
           created_at?: string
