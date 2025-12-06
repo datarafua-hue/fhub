@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/astro"
+  status = 200
+  force = true
+
+[functions]
+  directory = "dist/functions"
+
