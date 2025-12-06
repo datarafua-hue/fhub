@@ -26,7 +26,7 @@ export const PATCH: APIRoute = async ({ request, cookies }) => {
 
   // Parse request body
   const body = await request.json();
-  const { id, content } = body;
+  const { id, content, original_language } = body;
 
   if (!id || !content) {
     return new Response(JSON.stringify({ error: 'Missing required fields' }), {
