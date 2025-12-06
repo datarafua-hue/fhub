@@ -6,7 +6,10 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "deploy": "git add . && git commit -m 'Update content' && git push",
+    "deploy:msg": "node scripts/deploy.js",
+    "watch": "node scripts/auto-deploy.js"
   },
   "dependencies": {
     "@astrojs/node": "^9.5.1",
