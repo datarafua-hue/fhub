@@ -38,7 +38,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
     .select('*, profiles(*)')
     .eq('post_slug', decodedPostSlug)
     .eq('is_deleted', false)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
 
   // Non-admins only see approved comments or their own
   if (!isAdmin) {
