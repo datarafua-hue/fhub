@@ -40,7 +40,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   // Parse request body
   const body = await request.json();
-  const { post_slug, parent_id, content } = body;
+  const { post_slug, parent_id, content, original_language } = body;
 
   if (!post_slug || !content) {
     return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -64,6 +64,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       user_id: user.id,
       parent_id: parent_id || null,
       content,
+      original_language: original_language || 'ru', // Default to Russian if not provided
       is_approved: profile?.is_admin || false, // Admins auto-approved, others need moderation
     })
     .select('*, profiles(*)')
