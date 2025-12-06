@@ -1,0 +1,6 @@
+---
+// Brand page - forward to [lang] version with lang='ru'
+const { slug } = Astro.params;
+return Astro.rewrite(`/ru/brands/${slug}`);
+---
+
