@@ -3,6 +3,32 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "astro",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/posts/:category/:subcategory/:slug",
+      "destination": "/ru/posts/:category/:subcategory/:slug"
+    },
+    {
+      "source": "/posts/:slug",
+      "destination": "/ru/posts/:slug"
+    },
+    {
+      "source": "/category/:category/:subcategory",
+      "destination": "/ru/category/:category/:subcategory"
+    },
+    {
+      "source": "/category/:category",
+      "destination": "/ru/category/:category"
+    },
+    {
+      "source": "/brands/:slug",
+      "destination": "/ru/brands/:slug"
+    },
+    {
+      "source": "/brands",
+      "destination": "/ru/brands"
+    }
+  ]
 }
 

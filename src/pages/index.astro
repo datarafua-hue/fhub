@@ -1,6 +1,5 @@
 ---
-// Root page - renders Russian version (default locale)
-// This redirects to [lang]/index.astro with lang='ru'
-const response = await Astro.rewrite('/ru/');
-return response;
+// Root page - redirect to Russian (default locale)
+return Astro.redirect('/ru/', 301);
 ---
+
