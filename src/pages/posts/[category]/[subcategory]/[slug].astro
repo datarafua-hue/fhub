@@ -1,6 +1,930 @@
 ---
-// Post page - forward to [lang] version with lang='ru'
+import BaseLayout from '../../../../components/Layout/BaseLayout.astro';
+import CommentSection from '../../../../components/Comments/CommentSection';
+import { getCollection } from 'astro:content';
+import { getRelativeLocaleUrl } from 'astro:i18n';
+import { getTranslations } from '../../../../i18n';
+
+// Get parameters from route - no [lang] param, default to 'ru'
 const { category, subcategory, slug } = Astro.params;
-return Astro.rewrite(`/ru/posts/${category}/${subcategory}/${slug}`);
+const locale = 'ru'; // Always Russian for non-prefixed routes
+
+// Find the post based on parameters
+const allPosts = await getCollection('posts');
+const post = allPosts.find(p => {
+	if (p.data.category !== category || p.data.subcategory !== subcategory || p.data.lang !== locale) {
+		return false;
+	}
+	const slugParts = p.slug.split('/');
+	const filename = slugParts[slugParts.length - 1];
+	return filename === slug;
+});
+
+if (!post) {
+	return Astro.redirect('/404');
+}
+
+const { Content } = await post.render();
+
+// Get translations
+const t = getTranslations(locale as 'ru' | 'en');
+
+// Get category and subcategory names from index files
+let categoryInfo = null;
+let subcategoryInfo = null;
+try {
+	const categoryIndex = await getCollection('categories', ({ data, id }) => 
+		data.lang === locale && id.startsWith(`${category}/index`)
+	);
+	if (categoryIndex.length > 0) {
+		categoryInfo = categoryIndex[0].data;
+	}
+} catch (err) {
+	// Category index not found
+}
+
+try {
+	const subcategoryIndex = await getCollection('categories', ({ data, id }) => 
+		data.lang === locale && id.startsWith(`${category}/${subcategory}/index`)
+	);
+	if (subcategoryIndex.length > 0) {
+		subcategoryInfo = subcategoryIndex[0].data;
+	}
+} catch (err) {
+	// Subcategory index not found
+}
+
+const categoryName = categoryInfo?.title || category;
+const subcategoryName = subcategoryInfo?.title || subcategory;
+
+const formattedDate = new Date(post.data.date).toLocaleDateString(
+	locale === 'ru' ? 'ru-RU' : 'en-US',
+	{
+		day: '2-digit',
+		month: 'long',
+		year: 'numeric',
+	}
+);
+
+const backLink = `/category/${category}/${subcategory}`;
+
+// Get brand info if post has brand
+let brandInfo = null;
+if (post.data.brand) {
+	try {
+		const brands = await getCollection('brand', ({ data }) => 
+			data.lang === locale && data.title === post.data.brand
+		);
+		if (brands.length > 0) {
+			brandInfo = brands[0];
+		}
+	} catch (err) {
+		// Brand not found
+	}
+}
+
+// Normalize images - support both old format (strings) and new format (objects with url and caption)
+const normalizeImages = (images: any[] | undefined) => {
+	if (!images || images.length === 0) {
+		return [{ url: '/favicon.svg', caption: undefined }];
+	}
+	return images.map(img => {
+		// If it's a string, wrap it in an object
+		if (typeof img === 'string') {
+			return { url: String(img), caption: undefined };
+		}
+		// If it's already an object with url property
+		if (img && typeof img === 'object') {
+			// Ensure url is a string
+			const url = img.url ? String(img.url) : '/favicon.svg';
+			const caption = img.caption ? String(img.caption) : undefined;
+			return { url, caption };
+		}
+		// Fallback for unexpected formats
+		console.error('Unexpected image format:', typeof img, img);
+		return { url: '/favicon.svg', caption: undefined };
+	});
+};
+
+const images = normalizeImages(post.data.images);
+
+// Default specs if not provided
+const defaultSpecs = {
+	version: post.data.specs?.version || '26.1 (25878)',
+	developer: post.data.specs?.developer || 'Apple',
+	interfaceLanguage: post.data.specs?.interfaceLanguage || 'English, Russian, German',
+	activation: post.data.specs?.activation || 'DRM-FREE (no protection)',
+	supportedDevices: post.data.specs?.supportedDevices || 'iMac 2020 and newer, MacBook Air 2020 and newer',
+	architecture: post.data.specs?.architecture || 'ARM, x86 (64-bit)',
+};
+
+// Default FAQ if not provided
+const defaultFaq = post.data.faq && post.data.faq.length > 0 
+	? post.data.faq 
+	: [
+		{
+			question: 'What are the system requirements?',
+			answer: 'Requires macOS 13.0 or newer, minimum 8 GB RAM and 20 GB free disk space.',
+		},
+		{
+			question: 'How to install?',
+			answer: 'Download the installer and follow the installation wizard instructions. The process takes about 10-15 minutes.',
+		},
+		{
+			question: 'Is update supported?',
+			answer: 'Yes, you will receive automatic updates through the macOS update system.',
+		},
+	];
+
 ---
 
+<BaseLayout 
+	title={post.data.seoTitle || post.data.title} 
+	locale={locale}
+	bgImagesPost={post.data.bgImagesPost}
+>
+	<!-- Dark background for content below hero section -->
+	<div class="fixed inset-0 -z-20 bg-dark"></div>
+
+	<div class="px-4 lg:px-8 lg:pl-[18.5rem] pb-12 relative">
+		<!-- Category Name and Title - First on both mobile and desktop -->
+		<div class="mb-6 lg:mb-8 pt-6 lg:pt-8 order-1">
+			<h1 class="text-2xl lg:text-4xl font-bold text-white mb-2">{post.data.title}</h1>
+			<a 
+				href={backLink}
+				class="text-sm lg:text-base text-gray-400 hover:text-accent-blue transition-colors inline-block"
+			>
+				{categoryName}
+			</a>
+		</div>
+
+		<!-- Mobile Layout: Flex column with order -->
+		<div class="flex flex-col lg:hidden space-y-6 mb-6">
+			<!-- Swiper Slider - Mobile: second -->
+			<section class="order-2 relative">
+				<div class="swiper post-swiper w-full rounded-xl overflow-hidden">
+					<div class="swiper-wrapper">
+						{images.map((image, index) => (
+							<div class="swiper-slide">
+								<div class="relative w-full swiper-slide-container">
+									<img 
+										src={image.url} 
+										alt={image.caption || post.data.title}
+										class="w-full h-full object-contain rounded-xl"
+									/>
+									{image.caption && (
+										<div class="image-caption">
+											<p>{image.caption}</p>
+										</div>
+									)}
+								</div>
+							</div>
+						))}
+					</div>
+					<div class="swiper-pagination"></div>
+					<div class="swiper-button-prev"></div>
+					<div class="swiper-button-next"></div>
+					<!-- Hover zones for navigation arrows -->
+					<div class="swiper-nav-zone swiper-nav-zone-left"></div>
+					<div class="swiper-nav-zone swiper-nav-zone-right"></div>
+				</div>
+			</section>
+
+		<!-- Description Section with Tabs - Mobile: third -->
+		<section class="bg-block rounded-xl p-6 border border-gray-800 order-3">
+			<!-- Tabs -->
+			<div class="flex gap-4 mb-6 border-b border-gray-700">
+				<button 
+					class="tab-button pb-3 text-base font-semibold transition-all relative active"
+					data-tab="description"
+				>
+					{t.post?.description || 'Description'}
+					<div class="tab-indicator absolute bottom-0 left-0 right-0 h-0.5 bg-accent-blue opacity-0 transition-all"></div>
+				</button>
+				<button 
+					class="tab-button pb-3 text-base font-semibold transition-all relative text-gray-400"
+					data-tab="specs"
+				>
+					{t.post?.specifications || 'Specifications'}
+					<div class="tab-indicator absolute bottom-0 left-0 right-0 h-0.5 bg-accent-blue opacity-0 transition-all"></div>
+				</button>
+			</div>
+
+			<!-- Tab Content: Description -->
+			<div class="tab-content active" id="description-tab">
+				<div class="post-description-content prose prose-invert max-w-none">
+					<Content />
+				</div>
+			</div>
+
+			<!-- Tab Content: Specs -->
+			<div class="tab-content hidden" id="specs-tab">
+				<div class="space-y-3">
+					{defaultSpecs.version && (
+						<div class="flex justify-between py-2 border-b border-gray-700">
+							<span class="text-gray-400">{t.post?.version || 'Version'}</span>
+							<span class="text-white font-medium">{defaultSpecs.version}</span>
+						</div>
+					)}
+					{defaultSpecs.developer && (
+						<div class="flex justify-between py-2 border-b border-gray-700">
+							<span class="text-gray-400">{t.post?.developer || 'Developer'}</span>
+							<span class="text-white font-medium">{defaultSpecs.developer}</span>
+						</div>
+					)}
+					{defaultSpecs.interfaceLanguage && (
+						<div class="flex justify-between py-2 border-b border-gray-700">
+							<span class="text-gray-400">{t.post?.interfaceLanguage || 'Interface Language'}</span>
+							<span class="text-white font-medium">{defaultSpecs.interfaceLanguage}</span>
+						</div>
+					)}
+					{defaultSpecs.activation && (
+						<div class="flex justify-between py-2 border-b border-gray-700">
+							<span class="text-gray-400">{t.post?.activation || 'Activation'}</span>
+							<span class="text-white font-medium">{defaultSpecs.activation}</span>
+						</div>
+					)}
+					{defaultSpecs.supportedDevices && (
+						<div class="flex justify-between py-2 border-b border-gray-700">
+							<span class="text-gray-400">{t.post?.supportedDevices || 'Supported Devices'}</span>
+							<span class="text-white font-medium">{defaultSpecs.supportedDevices}</span>
+						</div>
+					)}
+					{defaultSpecs.architecture && (
+						<div class="flex justify-between py-2 border-b border-gray-700">
+							<span class="text-gray-400">{t.post?.architecture || 'Architecture'}</span>
+							<span class="text-white font-medium">{defaultSpecs.architecture}</span>
+						</div>
+					)}
+				</div>
+			</div>
+
+			<!-- Show More Button -->
+			<button 
+				id="showMoreBtn"
+				class="mt-6 w-full text-center py-2.5 text-gray-400 hover:text-white transition-colors font-medium text-sm"
+			>
+				{t.post?.showMore || 'Show more'}
+			</button>
+		</section>
+
+			<!-- FAQ Section - Mobile: after description -->
+			<section class="bg-block rounded-xl p-6 border border-gray-800 order-4">
+				<h3 class="text-xl font-bold text-white mb-6">{t.post?.faq || 'FAQ'}</h3>
+				<div class="space-y-4">
+					{defaultFaq.map((item, index) => (
+						<div class="faq-item border-b border-gray-800 pb-4 last:border-b-0 last:pb-0">
+							<button 
+								class="faq-question w-full text-left flex items-center justify-between gap-4 py-2 text-white hover:text-accent-blue transition-colors"
+								data-faq-index={index}
+							>
+								<span class="font-semibold text-base">{item.question}</span>
+								<svg 
+									class="w-5 h-5 flex-shrink-0 transition-transform faq-icon"
+									fill="none" 
+									stroke="currentColor" 
+									viewBox="0 0 24 24"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+								</svg>
+							</button>
+							<div 
+								class="faq-answer overflow-hidden transition-all duration-300"
+								data-faq-answer={index}
+							>
+								<p class="text-gray-300 pt-2 pb-2 text-sm leading-relaxed">
+									{item.answer}
+								</p>
+							</div>
+						</div>
+					))}
+				</div>
+			</section>
+
+			<!-- Right Sidebar - Mobile: fifth -->
+			<aside class="order-5">
+				<div class="post-sidebar-glass rounded-xl p-6 border border-white/10 backdrop-blur-md bg-block/80">
+					<!-- Specifications -->
+					<div class="space-y-4 mb-6">
+						{defaultSpecs.version && (
+							<div>
+								<div class="text-xs text-gray-500 mb-1">{t.post?.version || 'Version'}</div>
+								<div class="text-sm text-white font-medium">{defaultSpecs.version}</div>
+							</div>
+						)}
+						{defaultSpecs.developer && (
+							<div>
+								<div class="text-xs text-gray-500 mb-1">{t.post?.developer || 'Developer'}</div>
+								<div class="text-sm text-white font-medium">{defaultSpecs.developer}</div>
+							</div>
+						)}
+						{defaultSpecs.interfaceLanguage && (
+							<div>
+								<div class="text-xs text-gray-500 mb-1">{t.post?.interfaceLanguage || 'Interface Language'}</div>
+								<div class="text-sm text-white font-medium">{defaultSpecs.interfaceLanguage}</div>
+							</div>
+						)}
+						{defaultSpecs.activation && (
+							<div>
+								<div class="text-xs text-gray-500 mb-1">{t.post?.activation || 'Activation (RG)'}</div>
+								<div class="text-sm text-white font-medium">{defaultSpecs.activation}</div>
+							</div>
+						)}
+						{defaultSpecs.supportedDevices && (
+							<div>
+								<div class="text-xs text-gray-500 mb-1">{t.post?.supportedDevices || 'Supported Devices'}</div>
+								<div class="text-sm text-white font-medium">{defaultSpecs.supportedDevices}</div>
+							</div>
+						)}
+						{defaultSpecs.architecture && (
+							<div>
+								<div class="text-xs text-gray-500 mb-1">{t.post?.architecture || 'Architecture'}</div>
+								<div class="text-sm text-white font-medium">{defaultSpecs.architecture}</div>
+							</div>
+						)}
+					</div>
+
+					<!-- Buy Button -->
+					<a
+						href={post.data.buyUrl || '#'}
+						class="block w-full bg-green-600 hover:bg-green-700 text-white text-center font-semibold py-3 px-4 rounded-xl transition-colors mb-4"
+					>
+						{t.post?.buyInOfficialStore || 'Buy in official store'}
+					</a>
+
+					<!-- Security Info -->
+					<div class="flex items-start gap-2 text-sm text-gray-400 mb-4">
+						<svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+						</svg>
+						<div>
+							{t.post?.noThreatsFound || 'No threats found.'} <a href="#" class="text-accent-blue hover:underline">{t.post?.moreDetails || 'More details...'}</a>
+						</div>
+					</div>
+
+					<!-- Favorite Button -->
+					<button class="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-gray-700 hover:border-accent-blue rounded-xl text-gray-300 hover:text-white transition-colors">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+						</svg>
+						{t.post?.addToFavorites || 'Add to favorites'}
+					</button>
+
+					<!-- Publication Details -->
+					<div class="mt-6 pt-6 border-t border-gray-800 space-y-2 text-sm">
+						<div class="text-gray-500">
+							{t.post?.published || 'Published (modified):'}
+						</div>
+						<div class="text-white font-medium">
+							{formattedDate}
+						</div>
+						<div class="text-gray-500 mt-4">
+							{t.post?.views || 'Views:'}
+						</div>
+						<div class="text-white font-medium">
+							{Math.floor(Math.random() * 100000) + 10000}K
+						</div>
+					</div>
+				</div>
+			</aside>
+		</div>
+
+		<!-- Desktop Layout: Grid with slider and sidebar side by side -->
+		<div class="hidden lg:grid grid-cols-3 gap-6 lg:gap-8 mb-6 lg:mb-8">
+			<!-- Left column: Slider and Description -->
+			<div class="col-span-2 space-y-6">
+				<!-- Swiper Slider -->
+				<section class="relative">
+					<div class="swiper post-swiper w-full rounded-xl overflow-hidden">
+						<div class="swiper-wrapper">
+						{images.map((image) => (
+							<div class="swiper-slide">
+								<div class="relative w-full h-full max-h-[480px]">
+									<img 
+										src={image.url} 
+										alt={image.caption || post.data.title}
+										class="w-full h-full max-h-[480px] object-cover rounded-xl"
+									/>
+									{image.caption && (
+										<div class="image-caption">
+											<p>{image.caption}</p>
+										</div>
+									)}
+								</div>
+							</div>
+						))}
+						</div>
+						<div class="swiper-pagination"></div>
+						<div class="swiper-button-prev"></div>
+						<div class="swiper-button-next"></div>
+						<!-- Hover zones for navigation arrows -->
+						<div class="swiper-nav-zone swiper-nav-zone-left"></div>
+						<div class="swiper-nav-zone swiper-nav-zone-right"></div>
+					</div>
+				</section>
+
+				<!-- Description Section - Desktop: immediately after slider -->
+				<section class="bg-block rounded-xl p-6 lg:p-8 border border-gray-800">
+					<h3 class="text-xl lg:text-2xl font-bold text-white mb-4">{t.post?.description || 'Description'}</h3>
+					<div class="post-description-content prose prose-invert max-w-none">
+						<Content />
+					</div>
+					<button 
+						id="showMoreBtn"
+						class="mt-4 text-accent-blue hover:text-blue-400 transition-colors font-medium text-sm lg:text-base"
+					>
+						{t.post?.showMore || 'Show more'}
+					</button>
+				</section>
+
+				<!-- FAQ Section - Desktop: immediately after description -->
+				<section class="bg-block rounded-xl p-6 lg:p-8 border border-gray-800">
+					<h3 class="text-xl lg:text-2xl font-bold text-white mb-6">{t.post?.faq || 'FAQ'}</h3>
+					<div class="space-y-4">
+						{defaultFaq.map((item, index) => (
+							<div class="faq-item border-b border-gray-800 pb-4 last:border-b-0 last:pb-0">
+								<button 
+									class="faq-question w-full text-left flex items-center justify-between gap-4 py-2 text-white hover:text-accent-blue transition-colors"
+									data-faq-index={index}
+								>
+									<span class="font-semibold text-base lg:text-lg">{item.question}</span>
+									<svg 
+										class="w-5 h-5 flex-shrink-0 transition-transform faq-icon"
+										fill="none" 
+										stroke="currentColor" 
+										viewBox="0 0 24 24"
+									>
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+									</svg>
+								</button>
+								<div 
+									class="faq-answer overflow-hidden transition-all duration-300"
+									data-faq-answer={index}
+								>
+									<p class="text-gray-300 pt-2 pb-2 text-sm lg:text-base leading-relaxed">
+										{item.answer}
+									</p>
+								</div>
+							</div>
+						))}
+					</div>
+				</section>
+			</div>
+
+			<!-- Right Sidebar - 1 column on desktop -->
+			<aside class="col-span-1">
+				<div class="post-sidebar-glass rounded-xl p-6 lg:p-8 border border-white/10 backdrop-blur-md bg-block/80 sticky top-20">
+					<!-- Specifications -->
+					<div class="space-y-4 mb-6">
+						{defaultSpecs.version && (
+							<div>
+								<div class="text-xs text-gray-500 mb-1">{t.post?.version || 'Version'}</div>
+								<div class="text-sm text-white font-medium">{defaultSpecs.version}</div>
+							</div>
+						)}
+						{defaultSpecs.developer && (
+							<div>
+								<div class="text-xs text-gray-500 mb-1">{t.post?.developer || 'Developer'}</div>
+								<div class="text-sm text-white font-medium">{defaultSpecs.developer}</div>
+							</div>
+						)}
+						{defaultSpecs.interfaceLanguage && (
+							<div>
+								<div class="text-xs text-gray-500 mb-1">{t.post?.interfaceLanguage || 'Interface Language'}</div>
+								<div class="text-sm text-white font-medium">{defaultSpecs.interfaceLanguage}</div>
+							</div>
+						)}
+						{defaultSpecs.activation && (
+							<div>
+								<div class="text-xs text-gray-500 mb-1">{t.post?.activation || 'Activation (RG)'}</div>
+								<div class="text-sm text-white font-medium">{defaultSpecs.activation}</div>
+							</div>
+						)}
+						{defaultSpecs.supportedDevices && (
+							<div>
+								<div class="text-xs text-gray-500 mb-1">{t.post?.supportedDevices || 'Supported Devices'}</div>
+								<div class="text-sm text-white font-medium">{defaultSpecs.supportedDevices}</div>
+							</div>
+						)}
+						{defaultSpecs.architecture && (
+							<div>
+								<div class="text-xs text-gray-500 mb-1">{t.post?.architecture || 'Architecture'}</div>
+								<div class="text-sm text-white font-medium">{defaultSpecs.architecture}</div>
+							</div>
+						)}
+					</div>
+
+					<!-- Buy Button -->
+					<a
+						href={post.data.buyUrl || '#'}
+						class="block w-full bg-green-600 hover:bg-green-700 text-white text-center font-semibold py-3 px-4 rounded-xl transition-colors mb-4"
+					>
+						{t.post?.buyInOfficialStore || 'Buy in official store'}
+					</a>
+
+					<!-- Security Info -->
+					<div class="flex items-start gap-2 text-sm text-gray-400 mb-4">
+						<svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+						</svg>
+						<div>
+							{t.post?.noThreatsFound || 'No threats found.'} <a href="#" class="text-accent-blue hover:underline">{t.post?.moreDetails || 'More details...'}</a>
+						</div>
+					</div>
+
+					<!-- Favorite Button -->
+					<button class="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-gray-700 hover:border-accent-blue rounded-xl text-gray-300 hover:text-white transition-colors">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+						</svg>
+						{t.post?.addToFavorites || 'Add to favorites'}
+					</button>
+
+					<!-- Publication Details -->
+					<div class="mt-6 pt-6 border-t border-gray-800 space-y-2 text-sm">
+						<div class="text-gray-500">
+							{t.post?.published || 'Published (modified):'}
+						</div>
+						<div class="text-white font-medium">
+							{formattedDate}
+						</div>
+						<div class="text-gray-500 mt-4">
+							{t.post?.views || 'Views:'}
+						</div>
+						<div class="text-white font-medium">
+							{Math.floor(Math.random() * 100000) + 10000}K
+						</div>
+					</div>
+				</div>
+			</aside>
+		</div>
+
+		<!-- Comments Section -->
+		<div class="mt-12 max-w-4xl">
+			<CommentSection 
+				client:load
+				postSlug={post.slug}
+				locale={locale}
+			/>
+		</div>
+	</div>
+</BaseLayout>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js" defer></script>
+<script is:inline>
+	// Wait for Swiper library to load
+	function initSwiper() {
+		if (typeof Swiper === 'undefined') {
+			setTimeout(initSwiper, 100);
+			return;
+		}
+		
+		const swiperEl = document.querySelector('.post-swiper');
+		if (!swiperEl) {
+			setTimeout(initSwiper, 100);
+			return;
+		}
+		
+		// Initialize Swiper
+		const swiper = new Swiper('.post-swiper', {
+			loop: true,
+			pagination: {
+				el: '.swiper-pagination',
+				clickable: true,
+				bulletClass: 'swiper-pagination-bullet',
+				bulletActiveClass: 'swiper-pagination-bullet-active',
+			},
+			navigation: {
+				nextEl: '.swiper-button-next',
+				prevEl: '.swiper-button-prev',
+			},
+			slidesPerView: 1,
+			spaceBetween: 0,
+			effect: 'slide',
+		});
+	}
+	
+	// Try to initialize when DOM is ready
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', () => {
+			initSwiper();
+		});
+	} else {
+		initSwiper();
+	}
+	
+	// Also try on window load
+	window.addEventListener('load', () => {
+		const swiperEl = document.querySelector('.post-swiper');
+		if (typeof Swiper !== 'undefined' && swiperEl && !swiperEl.swiper) {
+			initSwiper();
+		}
+	});
+	
+	document.addEventListener('DOMContentLoaded', () => {
+		// Get locale from URL or default to 'ru'
+		const locale = window.location.pathname.startsWith('/en/') ? 'en' : 'ru';
+		const showMoreText = locale === 'ru' ? 'Показать больше' : 'Show more';
+		const showLessText = locale === 'ru' ? 'Показать меньше' : 'Show less';
+
+		// Show More/Less functionality
+		const showMoreBtn = document.getElementById('showMoreBtn');
+		const descriptionContent = document.querySelector('.post-description-content');
+		
+		if (showMoreBtn && descriptionContent) {
+			const fullContent = descriptionContent.innerHTML;
+			const shortContent = fullContent.substring(0, 500) + '...';
+			let isExpanded = false;
+			
+			// Check if content is short enough
+			if (fullContent.length <= 500) {
+				showMoreBtn.style.display = 'none';
+			} else {
+				descriptionContent.innerHTML = shortContent;
+				
+				showMoreBtn.addEventListener('click', () => {
+					isExpanded = !isExpanded;
+					descriptionContent.innerHTML = isExpanded ? fullContent : shortContent;
+					showMoreBtn.textContent = isExpanded ? showLessText : showMoreText;
+				});
+			}
+		}
+
+		// FAQ Accordion
+		document.querySelectorAll('.faq-question').forEach((btn) => {
+			btn.addEventListener('click', () => {
+				const index = btn.getAttribute('data-faq-index');
+				const answer = document.querySelector(`[data-faq-answer="${index}"]`);
+				const icon = btn.querySelector('.faq-icon');
+				
+				if (answer) {
+					const isOpen = answer.style.maxHeight && answer.style.maxHeight !== '0px';
+					answer.style.maxHeight = isOpen ? '0px' : `${answer.scrollHeight}px`;
+					
+					if (icon) {
+						icon.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+					}
+				}
+			});
+		});
+	});
+</script>
+
+<style>
+	/* Post Sidebar Glass Effect */
+	.post-sidebar-glass {
+		background: rgba(27, 27, 27, 0.7);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	/* Post Swiper - Full width, rounded corners, max height 480px */
+	.post-swiper {
+		width: 100%;
+		border-radius: 0.75rem;
+		overflow: hidden;
+		box-shadow: none;
+	}
+
+	.post-swiper .swiper-wrapper {
+		height: auto;
+	}
+
+	.swiper-slide {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		height: auto;
+	}
+
+	.swiper-slide-container {
+		width: 100%;
+		/* Aspect ratio 4:3 для изображений 1200×900 */
+		aspect-ratio: 4 / 3;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: rgba(27, 27, 27, 0.5);
+		position: relative;
+	}
+
+	.swiper-slide-container img {
+		max-width: 100%;
+		max-height: 100%;
+		object-fit: contain;
+	}
+
+	/* Image Caption Styles */
+	.swiper-slide-container .image-caption {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.7) 50%, transparent 100%);
+		padding: 1rem 1.5rem;
+		border-radius: 0 0 0.75rem 0.75rem;
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+	}
+
+	.swiper-slide-container .image-caption p {
+		color: white;
+		font-size: 0.875rem;
+		line-height: 1.5;
+		font-weight: 500;
+		text-align: center;
+		margin: 0;
+		text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+	}
+
+	@media (min-width: 1024px) {
+		.swiper-slide-container .image-caption {
+			padding: 1.5rem 2rem;
+		}
+
+		.swiper-slide-container .image-caption p {
+			font-size: 1rem;
+		}
+	}
+
+	/* Swiper Pagination */
+	.swiper-pagination {
+		bottom: 20px !important;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.swiper-pagination-bullet {
+		width: 8px;
+		height: 8px;
+		background: white;
+		opacity: 0.5;
+		transition: all 0.3s ease;
+	}
+
+	.swiper-pagination-bullet-active {
+		opacity: 1;
+		width: 24px;
+		border-radius: 4px;
+	}
+
+	/* Swiper Navigation Buttons - Smaller size */
+	.swiper-button-next,
+	.swiper-button-prev {
+		color: white;
+		width: 36px;
+		height: 36px;
+		margin-top: 0;
+		top: 50%;
+		transform: translateY(-50%);
+		background: rgba(0, 0, 0, 0.3);
+		border-radius: 50%;
+		backdrop-filter: blur(4px);
+		transition: all 0.3s ease;
+		z-index: 10;
+	}
+
+	.swiper-button-next::after,
+	.swiper-button-prev::after {
+		font-size: 16px;
+		font-weight: bold;
+	}
+
+	.swiper-button-prev {
+		left: 12px;
+	}
+
+	.swiper-button-next {
+		right: 12px;
+	}
+
+	.swiper-button-next:hover,
+	.swiper-button-prev:hover {
+		background: rgba(0, 0, 0, 0.5);
+		transform: translateY(-50%) scale(1.1);
+	}
+
+	/* Hover zones for navigation arrows */
+	.swiper-nav-zone {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		width: 80px;
+		z-index: 5;
+		opacity: 0;
+		transition: opacity 0.3s ease;
+		pointer-events: none;
+	}
+
+	.swiper-nav-zone-left {
+		left: 0;
+		background: linear-gradient(to right, rgba(39, 110, 241, 0.1), transparent);
+	}
+
+	.swiper-nav-zone-right {
+		right: 0;
+		background: linear-gradient(to left, rgba(39, 110, 241, 0.1), transparent);
+	}
+
+	.post-swiper:hover .swiper-nav-zone-left {
+		opacity: 1;
+	}
+
+	.post-swiper:hover .swiper-nav-zone-right {
+		opacity: 1;
+	}
+
+	.post-swiper:hover .swiper-button-prev {
+		opacity: 1;
+	}
+
+	.post-swiper:hover .swiper-button-next {
+		opacity: 1;
+	}
+
+	.swiper-button-prev,
+	.swiper-button-next {
+		opacity: 0;
+	}
+
+	@media (min-width: 1024px) {
+		.swiper-button-prev,
+		.swiper-button-next {
+			opacity: 0;
+		}
+	}
+
+	/* Prose styles */
+	.prose {
+		color: rgb(209 213 219);
+	}
+	
+	.prose h1,
+	.prose h2,
+	.prose h3,
+	.prose h4,
+	.prose h5,
+	.prose h6 {
+		color: rgb(255 255 255);
+		font-weight: 700;
+		margin-top: 1.5em;
+		margin-bottom: 0.75em;
+	}
+	
+	.prose h2 {
+		font-size: 1.5rem;
+		line-height: 2rem;
+	}
+	
+	.prose h3 {
+		font-size: 1.25rem;
+		line-height: 1.75rem;
+	}
+	
+	.prose p {
+		margin-top: 1em;
+		margin-bottom: 1em;
+		line-height: 1.75;
+	}
+	
+	.prose ul,
+	.prose ol {
+		margin-top: 1em;
+		margin-bottom: 1em;
+		padding-left: 1.5em;
+	}
+	
+	.prose li {
+		margin-top: 0.5em;
+		margin-bottom: 0.5em;
+	}
+	
+	.prose strong {
+		color: rgb(255 255 255);
+		font-weight: 600;
+	}
+	
+	.prose a {
+		color: rgb(39 110 241);
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+	
+	.prose a:hover {
+		color: rgb(96 165 250);
+	}
+
+	/* FAQ Styles */
+	.faq-answer {
+		max-height: 0px;
+	}
+
+	.faq-icon {
+		transform: rotate(0deg);
+		transition: transform 0.3s ease;
+	}
+</style>
