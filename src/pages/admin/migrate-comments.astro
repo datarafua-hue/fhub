@@ -1,0 +1,249 @@
+---
+import BaseLayout from '../../components/Layout/BaseLayout.astro';
+
+const locale = 'ru';
+
+// Check if user is admin
+const user = Astro.locals.user;
+const profile = Astro.locals.profile;
+
+if (!user || !profile?.is_admin) {
+	return Astro.redirect('/');
+}
+---
+
+<BaseLayout title="Миграция комментариев" locale={locale}>
+	<div class="px-4 lg:px-8 lg:pl-[18.5rem] py-12 min-h-screen">
+		<div class="max-w-4xl mx-auto">
+			<h1 class="text-3xl font-bold text-white mb-8">🔄 Миграция комментариев</h1>
+
+			<div class="bg-bg-block rounded-xl p-6 border border-gray-700 mb-6">
+				<p class="text-gray-300 mb-4">
+					Используйте эту форму для переноса комментариев с одного slug на другой.
+					Это полезно когда вы переименовываете файл статьи.
+				</p>
+				<div class="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
+					<p class="text-yellow-400 text-sm">
+						⚠️ <strong>Внимание:</strong> Все комментарии будут перенесены на новый slug.
+						Эта операция необратима!
+					</p>
+				</div>
+			</div>
+
+			<!-- Migration Form -->
+			<form id="migrationForm" class="bg-bg-block rounded-xl p-6 border border-gray-700 space-y-6">
+				<!-- Old Slug -->
+				<div>
+					<label for="oldSlug" class="block text-sm font-medium text-gray-300 mb-2">
+						Старый slug (откуда переносим)
+					</label>
+					<input
+						type="text"
+						id="oldSlug"
+						name="oldSlug"
+						placeholder="hidden-petli/ceam/post-1-ru"
+						class="w-full px-4 py-2 bg-bg-dark border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent-blue"
+						required
+					/>
+					<p class="text-sm text-gray-400 mt-1">
+						Пример: hidden-petli/ceam/post-1-ru
+					</p>
+				</div>
+
+				<!-- New Slug -->
+				<div>
+					<label for="newSlug" class="block text-sm font-medium text-gray-300 mb-2">
+						Новый slug (куда переносим)
+					</label>
+					<input
+						type="text"
+						id="newSlug"
+						name="newSlug"
+						placeholder="hidden-petli/ceam/1432"
+						class="w-full px-4 py-2 bg-bg-dark border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent-blue"
+						required
+					/>
+					<p class="text-sm text-gray-400 mt-1">
+						Пример: hidden-petli/ceam/1432
+					</p>
+				</div>
+
+				<!-- Info Display -->
+				<div id="infoBox" class="hidden bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+					<p class="text-blue-400 text-sm" id="infoText"></p>
+				</div>
+
+				<!-- Error Display -->
+				<div id="errorBox" class="hidden bg-red-900/20 border border-red-700 rounded-lg p-4">
+					<p class="text-red-400 text-sm" id="errorText"></p>
+				</div>
+
+				<!-- Success Display -->
+				<div id="successBox" class="hidden bg-green-900/20 border border-green-700 rounded-lg p-4">
+					<p class="text-green-400 text-sm" id="successText"></p>
+				</div>
+
+				<!-- Actions -->
+				<div class="flex gap-4">
+					<button
+						type="button"
+						id="checkBtn"
+						class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+					>
+						🔍 Проверить количество
+					</button>
+					<button
+						type="submit"
+						id="migrateBtn"
+						class="px-6 py-2 bg-accent-blue text-white rounded-lg hover:bg-blue-600 transition-colors"
+						disabled
+					>
+						🚀 Мигрировать комментарии
+					</button>
+				</div>
+			</form>
+
+			<!-- Instructions -->
+			<div class="mt-8 bg-bg-block rounded-xl p-6 border border-gray-700">
+				<h2 class="text-xl font-bold text-white mb-4">📖 Инструкция</h2>
+				<ol class="space-y-2 text-gray-300">
+					<li>1. Введите старый slug (из базы данных)</li>
+					<li>2. Введите новый slug (имя нового файла)</li>
+					<li>3. Нажмите "Проверить количество" чтобы узнать сколько комментариев будет перенесено</li>
+					<li>4. Если всё правильно, нажмите "Мигрировать комментарии"</li>
+				</ol>
+
+				<div class="mt-6 p-4 bg-bg-dark rounded-lg">
+					<p class="text-sm text-gray-400 mb-2">
+						<strong class="text-white">Совет:</strong> Используйте <code class="text-accent-blue">customSlug</code> в frontmatter чтобы избежать проблем:
+					</p>
+					<pre class="text-xs text-gray-300 bg-black/50 p-3 rounded overflow-x-auto"><code>---
+title: "Мой пост"
+category: "hidden-petli"
+subcategory: "ceam"
+customSlug: "hidden-petli/ceam/post-1-ru"  ← Фиксированный slug
+---</code></pre>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		const form = document.getElementById('migrationForm') as HTMLFormElement;
+		const checkBtn = document.getElementById('checkBtn') as HTMLButtonElement;
+		const migrateBtn = document.getElementById('migrateBtn') as HTMLButtonElement;
+		const oldSlugInput = document.getElementById('oldSlug') as HTMLInputElement;
+		const newSlugInput = document.getElementById('newSlug') as HTMLInputElement;
+		const infoBox = document.getElementById('infoBox') as HTMLDivElement;
+		const infoText = document.getElementById('infoText') as HTMLParagraphElement;
+		const errorBox = document.getElementById('errorBox') as HTMLDivElement;
+		const errorText = document.getElementById('errorText') as HTMLParagraphElement;
+		const successBox = document.getElementById('successBox') as HTMLDivElement;
+		const successText = document.getElementById('successText') as HTMLParagraphElement;
+
+		// Hide all message boxes
+		function hideMessages() {
+			infoBox.classList.add('hidden');
+			errorBox.classList.add('hidden');
+			successBox.classList.add('hidden');
+		}
+
+		// Check comment count
+		checkBtn.addEventListener('click', async () => {
+			hideMessages();
+			const oldSlug = oldSlugInput.value.trim();
+			
+			if (!oldSlug) {
+				errorBox.classList.remove('hidden');
+				errorText.textContent = 'Введите старый slug';
+				return;
+			}
+
+			checkBtn.disabled = true;
+			checkBtn.textContent = '⏳ Проверяем...';
+
+			try {
+				const response = await fetch('/api/comments/migrate', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ oldSlug, newSlug: '', checkOnly: true }),
+				});
+
+				const data = await response.json();
+
+				if (response.ok) {
+					infoBox.classList.remove('hidden');
+					infoText.textContent = `Найдено ${data.count} комментариев с slug "${oldSlug}"`;
+					migrateBtn.disabled = data.count === 0;
+				} else {
+					errorBox.classList.remove('hidden');
+					errorText.textContent = data.error || 'Ошибка при проверке';
+				}
+			} catch (error) {
+				errorBox.classList.remove('hidden');
+				errorText.textContent = 'Ошибка соединения с сервером';
+			} finally {
+				checkBtn.disabled = false;
+				checkBtn.textContent = '🔍 Проверить количество';
+			}
+		});
+
+		// Migrate comments
+		form.addEventListener('submit', async (e) => {
+			e.preventDefault();
+			hideMessages();
+
+			const oldSlug = oldSlugInput.value.trim();
+			const newSlug = newSlugInput.value.trim();
+
+			if (!oldSlug || !newSlug) {
+				errorBox.classList.remove('hidden');
+				errorText.textContent = 'Заполните оба поля';
+				return;
+			}
+
+			if (oldSlug === newSlug) {
+				errorBox.classList.remove('hidden');
+				errorText.textContent = 'Старый и новый slug не могут быть одинаковыми';
+				return;
+			}
+
+			const confirmed = confirm(
+				`Вы уверены что хотите перенести все комментарии с "${oldSlug}" на "${newSlug}"?\n\nЭто действие необратимо!`
+			);
+
+			if (!confirmed) return;
+
+			migrateBtn.disabled = true;
+			migrateBtn.textContent = '⏳ Миграция...';
+
+			try {
+				const response = await fetch('/api/comments/migrate', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ oldSlug, newSlug, checkOnly: false }),
+				});
+
+				const data = await response.json();
+
+				if (response.ok) {
+					successBox.classList.remove('hidden');
+					successText.textContent = `✅ Успешно мигрировано ${data.count} комментариев!`;
+					oldSlugInput.value = '';
+					newSlugInput.value = '';
+					migrateBtn.disabled = true;
+				} else {
+					errorBox.classList.remove('hidden');
+					errorText.textContent = data.error || 'Ошибка при миграции';
+				}
+			} catch (error) {
+				errorBox.classList.remove('hidden');
+				errorText.textContent = 'Ошибка соединения с сервером';
+			} finally {
+				migrateBtn.disabled = false;
+				migrateBtn.textContent = '🚀 Мигрировать комментарии';
+			}
+		});
+	</script>
+</BaseLayout>
+
