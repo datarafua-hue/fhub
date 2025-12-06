@@ -581,14 +581,16 @@ const defaultFaq = post.data.faq && post.data.faq.length > 0
 			</aside>
 		</div>
 
-		<!-- Comments Section -->
-		<div class="mt-12 max-w-4xl">
-			<CommentSection 
-				client:load
-				postSlug={post.slug}
-				locale={locale}
-			/>
-		</div>
+	<!-- Comments Section -->
+	<div class="mt-12 max-w-4xl">
+		<CommentSection 
+			client:load
+			postSlug={post.slug}
+			locale={locale}
+			currentUserId={Astro.locals.user?.id}
+			isAdmin={Astro.locals.profile?.is_admin || false}
+		/>
+	</div>
 	</div>
 </BaseLayout>
 

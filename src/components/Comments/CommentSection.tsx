@@ -6,12 +6,14 @@ import { supabase } from '../../lib/supabase';
 
 interface CommentSectionProps {
   postSlug: string;
+  locale?: string;
   currentUserId?: string;
   isAdmin?: boolean;
 }
 
 export default function CommentSection({
   postSlug,
+  locale = 'ru',
   currentUserId,
   isAdmin = false,
 }: CommentSectionProps) {

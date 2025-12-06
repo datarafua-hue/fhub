@@ -286,6 +286,8 @@ const tagColors: Record<string, string> = {
 			client:load
 			postSlug={post.slug}
 			locale={locale}
+			currentUserId={Astro.locals.user?.id}
+			isAdmin={Astro.locals.profile?.is_admin || false}
 		/>
 	</div>
 </div>
