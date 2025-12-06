@@ -21,6 +21,13 @@ export default function CommentForm({
   const [error, setError] = useState('');
   const [showPreview, setShowPreview] = useState(false);
 
+  // Auto-detect language based on content
+  const detectLanguage = (text: string): 'ru' | 'en' => {
+    // Check for Cyrillic characters
+    const cyrillicPattern = /[а-яА-ЯёЁ]/;
+    return cyrillicPattern.test(text) ? 'ru' : 'en';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -38,6 +45,9 @@ export default function CommentForm({
     setIsSubmitting(true);
 
     try {
+      // Detect language of the comment
+      const detectedLanguage = detectLanguage(content);
+
       const url = editingComment ? '/api/comments/update' : '/api/comments/create';
       const response = await fetch(url, {
         method: editingComment ? 'PATCH' : 'POST',
@@ -49,6 +59,7 @@ export default function CommentForm({
           post_slug: postSlug,
           parent_id: parentId,
           content,
+          original_language: detectedLanguage,
         }),
       });
 
