@@ -43,7 +43,8 @@ export default function CommentItem({
   // Render Markdown safely - only on client side
   useEffect(() => {
     const renderMarkdown = async () => {
-      const html = marked(comment.content, { breaks: true }) as string;
+      const textToRender = showTranslation && translatedText ? translatedText : comment.content;
+      const html = marked(textToRender, { breaks: true }) as string;
       
       // Only use DOMPurify on client side
       if (typeof window !== 'undefined') {
@@ -56,7 +57,51 @@ export default function CommentItem({
     };
     
     renderMarkdown();
-  }, [comment.content]);
+  }, [comment.content, translatedText, showTranslation]);
+
+  // Handle translation
+  const handleTranslate = async () => {
+    if (translatedText && showTranslation) {
+      // Toggle back to original
+      setShowTranslation(false);
+      return;
+    }
+
+    if (translatedText && !showTranslation) {
+      // Already translated, just show it
+      setShowTranslation(true);
+      return;
+    }
+
+    // Need to fetch translation
+    setIsTranslating(true);
+
+    try {
+      const response = await fetch('/api/comments/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          commentId: comment.id,
+          targetLanguage: currentLanguage,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Ошибка при переводе');
+      }
+
+      setTranslatedText(data.translatedText);
+      setShowTranslation(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Произошла ошибка');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!confirm('Вы уверены, что хотите удалить этот комментарий?')) {
