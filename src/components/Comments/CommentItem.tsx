@@ -26,11 +26,19 @@ export default function CommentItem({
   const [isEditing, setIsEditing] = useState(false);
   const [showReplies, setShowReplies] = useState(true);
   const [sanitizedHtml, setSanitizedHtml] = useState('');
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const isOwner = currentUserId === comment.user_id;
   const canEdit = isOwner && new Date(comment.created_at) > new Date(Date.now() - 15 * 60 * 1000);
   const canDelete = isOwner || isAdmin;
+  
+  // Detect user's current language (from URL or browser)
+  const currentLanguage = (typeof window !== 'undefined' && window.location.pathname.includes('/en')) ? 'en' : 'ru';
+  const commentLanguage = comment.original_language || 'ru';
+  const needsTranslation = commentLanguage !== currentLanguage;
 
   // Render Markdown safely - only on client side
   useEffect(() => {
