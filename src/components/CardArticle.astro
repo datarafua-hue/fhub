@@ -1,0 +1,137 @@
+---
+import { getRelativeLocaleUrl } from 'astro:i18n';
+
+interface Props {
+	title: string;
+	description: string;
+	tags: string[];
+	author: string;
+	date: string;
+	views: number;
+	rating: number;
+	comments?: number;
+	image?: string;
+	slug: string;
+	locale?: string;
+	category?: string;
+	subcategory?: string;
+}
+
+const { title, description, tags, author, date, views, rating, comments = 0, image = '/favicon.svg', slug, locale, category, subcategory } = Astro.props;
+
+const currentLocale = locale || Astro.currentLocale || 'ru';
+
+// Extract filename from slug (e.g., "hidden-petli/koblenz/post-1-ru" -> "post-1-ru")
+const slugParts = slug.split('/');
+const filename = slugParts[slugParts.length - 1];
+
+// Build URL: only include category/subcategory in path if both are present
+// Posts with only category (no subcategory) go to /posts/[slug]
+let postPath = `posts/${filename}`;
+if (category && subcategory) {
+	postPath = `posts/${category}/${subcategory}/${filename}`;
+}
+const postUrl = getRelativeLocaleUrl(currentLocale, postPath);
+
+const formattedDate = new Date(date).toLocaleDateString(currentLocale === 'ru' ? 'ru-RU' : 'en-US', {
+	day: '2-digit',
+	month: '2-digit',
+	year: 'numeric',
+});
+const formattedDateShort = new Date(date).toLocaleDateString(currentLocale === 'ru' ? 'ru-RU' : 'en-US', {
+	day: '2-digit',
+	month: '2-digit',
+});
+
+// Tag colors mapping
+const tagColors: Record<string, string> = {
+	'РЕДАКЦИЯ': 'bg-blue-500/20 text-blue-400 border-blue-500/40 backdrop-blur-sm',
+	'ГАЙДЫ': 'bg-purple-500/20 text-purple-400 border-purple-500/40 backdrop-blur-sm',
+	'НОВОСТИ': 'bg-green-500/20 text-green-400 border-green-500/40 backdrop-blur-sm',
+	'ОБЗОРЫ': 'bg-orange-500/20 text-orange-400 border-orange-500/40 backdrop-blur-sm',
+};
+---
+
+<!-- Mobile: List layout with icon, title, description, date -->
+<!-- Desktop: Card layout with image, tags, stats -->
+<article class="lg:glass-card lg:rounded-2xl lg:overflow-hidden lg:hover:scale-[1.02] lg:hover:shadow-glass-lg transition-all cursor-pointer group h-full flex flex-col border-b border-white/10 lg:border-b-0 pb-4 lg:pb-0 mb-4 lg:mb-0 last:border-b-0 last:pb-0 last:mb-0 backdrop-blur-glass">
+	<a href={postUrl} class="block h-full flex flex-col lg:flex-col">
+		<!-- Mobile Layout: Icon + Title + Description + Date -->
+		<div class="flex lg:hidden items-start gap-3 w-full p-3 glass rounded-xl">
+			{image && (
+				<div class="relative w-14 h-14 glass rounded-xl overflow-hidden flex-shrink-0 border border-white/10">
+					<img src={image} alt={title} class="w-full h-full object-cover" />
+				</div>
+			)}
+			<div class="flex-1 min-w-0">
+				<h3 class="text-base font-semibold mb-1 text-white group-hover:text-gradient-blue transition-all line-clamp-2">
+					{title}
+				</h3>
+				<p class="text-sm text-gray-400 line-clamp-2 leading-relaxed">
+					{description}
+				</p>
+			</div>
+			<div class="flex-shrink-0 text-xs text-gray-400 ml-2 whitespace-nowrap">
+				{formattedDateShort}
+			</div>
+		</div>
+
+		<!-- Desktop Layout: Card with image, tags, stats -->
+		<div class="hidden lg:block">
+			{image && (
+				<div class="relative h-48 bg-dark overflow-hidden flex-shrink-0 rounded-t-2xl">
+					<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10"></div>
+					<img src={image} alt={title} class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+				</div>
+			)}
+			
+			<div class="p-4 lg:p-6 flex-1 flex flex-col">
+				<div class="flex flex-wrap gap-2 mb-3">
+					{tags.map((tag) => {
+						const tagUpper = tag.toUpperCase();
+						const colorClass = tagColors[tagUpper] || 'bg-white/5 text-gray-300 border-white/10';
+						return (
+							<span class={`px-2.5 py-1 text-xs font-medium rounded-lg border backdrop-blur-sm ${colorClass}`}>
+								{tagUpper}
+							</span>
+						);
+					})}
+				</div>
+
+				<div class="text-xs text-gray-400 mb-3 font-medium">
+					{author} / {formattedDate}
+				</div>
+
+				<h3 class="text-base lg:text-lg font-semibold mb-3 text-white group-hover:text-gradient-blue transition-all line-clamp-2 leading-tight">
+					{title}
+				</h3>
+
+				<p class="text-sm text-gray-400 mb-4 line-clamp-2 leading-relaxed flex-1">
+					{description}
+				</p>
+
+				<div class="flex items-center gap-3 lg:gap-4 text-xs text-gray-500 flex-wrap mt-auto">
+					<span class="flex items-center gap-1">
+						<svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+							<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+						</svg>
+						{rating}
+					</span>
+					<span class="flex items-center gap-1">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+						</svg>
+						{comments}
+					</span>
+					<span class="flex items-center gap-1">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+						</svg>
+						{views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views}
+					</span>
+				</div>
+			</div>
+		</div>
+	</a>
+</article>

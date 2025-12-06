@@ -1,0 +1,275 @@
+/* Comments Section Styles */
+
+/* Base comment styles */
+.comment-item {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Markdown prose styles for comments - Dark theme optimized */
+.prose {
+  color: #e5e7eb;
+  max-width: 65ch;
+}
+
+.prose p {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+  line-height: 1.7;
+}
+
+.prose strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.prose em {
+  font-style: italic;
+  color: #d1d5db;
+}
+
+.prose code {
+  color: #f472b6;
+  font-weight: 500;
+  font-size: 0.875em;
+  padding: 0.2em 0.4em;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.prose pre {
+  background-color: #0f172a;
+  color: #e5e7eb;
+  overflow-x: auto;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.prose pre code {
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 0.875em;
+  font-weight: 400;
+  border: none;
+}
+
+.prose a {
+  color: #60a5fa;
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.prose a:hover {
+  color: #93c5fd;
+  border-bottom-color: #60a5fa;
+}
+
+.prose ul,
+.prose ol {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+  color: #d1d5db;
+}
+
+.prose li {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose blockquote {
+  font-style: italic;
+  border-left: 0.25rem solid #276ef1;
+  padding-left: 1rem;
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  color: #9ca3af;
+  background-color: rgba(39, 110, 241, 0.05);
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  color: #ffffff;
+  font-weight: 700;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose h1 {
+  font-size: 1.5em;
+}
+
+.prose h2 {
+  font-size: 1.25em;
+}
+
+.prose h3 {
+  font-size: 1.125em;
+}
+
+.prose img {
+  border-radius: 0.5rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.prose hr {
+  border-color: #374151;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+/* Comment actions */
+.comment-item button {
+  transition: all 0.2s ease;
+}
+
+.comment-item button:hover {
+  transform: translateY(-1px);
+}
+
+/* Nested comments indentation */
+.comment-item {
+  position: relative;
+}
+
+.comment-item::before {
+  content: '';
+  position: absolute;
+  left: -1rem;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, #4b5563, transparent);
+  opacity: 0.3;
+}
+
+/* Comment form textarea */
+textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(39, 110, 241, 0.1);
+}
+
+/* Loading spinner */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Smooth transitions for all interactive elements */
+.transition-colors {
+  transition-property: color, background-color, border-color;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Badge styles */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 9999px;
+}
+
+.badge-admin {
+  background-color: #276ef1;
+  color: white;
+  box-shadow: 0 0 10px rgba(39, 110, 241, 0.3);
+}
+
+.badge-pending {
+  background-color: #78350f;
+  color: #fde68a;
+  border: 1px solid #92400e;
+}
+
+/* Avatar styles */
+.avatar {
+  border-radius: 9999px;
+  object-fit: cover;
+}
+
+/* Glass effect for modals */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.dark .glass {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Comment section container */
+.comments-section {
+  scroll-margin-top: 100px;
+}
+
+/* Focus styles for accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #276ef1;
+  outline-offset: 2px;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 640px) {
+  .comment-item {
+    margin-left: 0;
+  }
+
+  .comment-item::before {
+    display: none;
+  }
+
+  .prose {
+    font-size: 0.875rem;
+  }
+}
+

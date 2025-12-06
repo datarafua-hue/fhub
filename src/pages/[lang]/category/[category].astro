@@ -1,0 +1,296 @@
+---
+import BaseLayout from '../../../components/Layout/BaseLayout.astro';
+import CardArticle from '../../../components/CardArticle.astro';
+import { getCollection } from 'astro:content';
+import { getRelativeLocaleUrl } from 'astro:i18n';
+import fs from 'fs';
+import path from 'path';
+
+export async function getStaticPaths() {
+	// Get categories from posts or file system
+	const posts = await getCollection('posts');
+	const categoriesFromPosts = [...new Set(
+		posts
+			.filter(p => p.data.category)
+			.map(p => p.data.category!)
+	)];
+	
+	// Also check file system for categories
+	const contentDir = path.join(process.cwd(), 'src/content');
+	let categoriesFromFS: string[] = [];
+	try {
+		const entries = fs.readdirSync(contentDir, { withFileTypes: true });
+		categoriesFromFS = entries
+			.filter(entry => entry.isDirectory() && entry.name !== 'posts' && entry.name !== 'categories' && entry.name !== 'config.ts' && entry.name !== 'brand')
+			.map(entry => entry.name);
+	} catch (err) {
+		console.error('Error reading content directory:', err);
+	}
+	
+	// Combine and deduplicate
+	const allCategories = [...new Set([...categoriesFromPosts, ...categoriesFromFS])];
+	
+	return allCategories.map(category => ({ params: { category } }));
+}
+
+const { lang, category } = Astro.params;
+const locale = lang || 'ru';
+const page = Number(Astro.url.searchParams.get('page') || '1');
+const itemsPerPage = 9;
+
+// Get all posts for this language and category (including all subcategories)
+const allPosts = await getCollection('posts', ({ data }) => 
+	data.lang === locale && data.category === category
+);
+
+// Try to get category info from index.md
+let categoryInfo = null;
+try {
+	const categoryIndex = await getCollection('categories', ({ data, id }) => 
+		data.lang === locale && id.startsWith(`${category}/index`)
+	);
+	if (categoryIndex.length > 0) {
+		const { Content } = await categoryIndex[0].render();
+		categoryInfo = {
+			title: categoryIndex[0].data.title,
+			description: categoryIndex[0].data.description,
+			Content,
+		};
+	}
+} catch (err) {
+	// Category index not found, use default
+}
+
+// Get subcategories
+const subcategories = [...new Set(allPosts.map(p => p.data.subcategory).filter(Boolean))];
+
+// Get subcategory names from index files
+const subcategoryNames = new Map<string, string>();
+for (const subcat of subcategories) {
+	try {
+		const subcategoryIndex = await getCollection('categories', ({ data, id }) => 
+			data.lang === locale && id.startsWith(`${category}/${subcat}/index`)
+		);
+		if (subcategoryIndex.length > 0) {
+			subcategoryNames.set(subcat, subcategoryIndex[0].data.title);
+		}
+	} catch (err) {
+		// Subcategory index not found
+	}
+}
+
+// Filtering
+const vesdenFilter = Astro.url.searchParams.get('vesden');
+const thicknessFilter = Astro.url.searchParams.get('thickness');
+
+let filteredPosts = allPosts;
+
+if (vesdenFilter) {
+	filteredPosts = filteredPosts.filter((post) => {
+		const postVesden = typeof post.data.vesden === 'string' 
+			? parseFloat(post.data.vesden) 
+			: post.data.vesden;
+		return postVesden && postVesden.toString() === vesdenFilter;
+	});
+}
+
+if (thicknessFilter) {
+	filteredPosts = filteredPosts.filter((post) => {
+		const postThickness = typeof post.data.thickness === 'string' 
+			? parseFloat(post.data.thickness) 
+			: post.data.thickness;
+		return postThickness && postThickness.toString() === thicknessFilter;
+	});
+}
+
+// Pagination
+const totalPages = Math.ceil(filteredPosts.length / itemsPerPage);
+const startIndex = (page - 1) * itemsPerPage;
+const paginatedPosts = filteredPosts.slice(startIndex, startIndex + itemsPerPage);
+
+// Get unique filter values
+const uniqueVesden = [...new Set(allPosts.map(p => p.data.vesden).filter(Boolean))].sort();
+const uniqueThickness = [...new Set(allPosts.map(p => p.data.thickness).filter(Boolean))].sort();
+
+const categoryName = categoryInfo?.title || category;
+---
+
+<BaseLayout title={`${categoryName} - FurnituraHub`} locale={locale}>
+	<div class="px-4 lg:px-8 lg:pl-[18.5rem] py-6 lg:py-8">
+		<h1 class="text-2xl lg:text-4xl font-bold mb-6 lg:mb-8 text-white">
+			{categoryName}
+		</h1>
+
+		{categoryInfo?.Content && (
+			<div class="bg-block rounded-xl p-6 mb-6 lg:mb-8 border border-gray-800 prose prose-invert max-w-none">
+				<categoryInfo.Content />
+			</div>
+		)}
+
+		{/* Subcategories */}
+		{subcategories.length > 0 && (
+			<div class="mb-6 lg:mb-8">
+				<h2 class="text-xl lg:text-2xl font-semibold mb-4 text-white">
+					{locale === 'ru' ? 'Подкатегории' : 'Subcategories'}
+				</h2>
+				<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+					{subcategories.map((subcat) => {
+						const subcatPosts = allPosts.filter(p => p.data.subcategory === subcat);
+						const subcategoryName = subcategoryNames.get(subcat) || subcat;
+						
+						return (
+							<a
+								href={getRelativeLocaleUrl(locale, `category/${category}/${subcat}`)}
+								class="bg-block rounded-xl p-4 border border-gray-800 hover:border-accent-blue transition-colors"
+							>
+								<div class="font-semibold text-white mb-1">{subcategoryName}</div>
+								<div class="text-sm text-gray-400">
+									{subcatPosts.length} {locale === 'ru' ? 'статей' : 'articles'}
+								</div>
+							</a>
+						);
+					})}
+				</div>
+			</div>
+		)}
+
+		{/* Filters */}
+		<div class="bg-block rounded-xl p-4 lg:p-6 mb-6 lg:mb-8 border border-gray-800">
+			<h2 class="text-lg lg:text-xl font-semibold mb-4 text-white">
+				{locale === 'ru' ? 'Фильтры' : 'Filters'}
+			</h2>
+			<form method="GET" class="flex flex-col lg:flex-row flex-wrap gap-4">
+				<input type="hidden" name="page" value="1" />
+				
+				<div>
+					<label class="block text-sm text-gray-400 mb-2">
+						{locale === 'ru' ? 'Вес дверного полотна (кг)' : 'Door Leaf Weight (kg)'}
+					</label>
+					<select
+						name="vesden"
+						class="px-4 py-2 bg-dark border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-accent-blue"
+						onchange="this.form.submit()"
+					>
+						<option value="">{locale === 'ru' ? 'Все' : 'All'}</option>
+						{uniqueVesden.map((v) => (
+							<option value={v} selected={vesdenFilter === v?.toString()}>
+								{v}
+							</option>
+						))}
+					</select>
+				</div>
+
+				<div>
+					<label class="block text-sm text-gray-400 mb-2">
+						{locale === 'ru' ? 'Толщина (мм)' : 'Thickness (mm)'}
+					</label>
+					<select
+						name="thickness"
+						class="px-4 py-2 bg-dark border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-accent-blue"
+						onchange="this.form.submit()"
+					>
+						<option value="">{locale === 'ru' ? 'Все' : 'All'}</option>
+						{uniqueThickness.map((t) => (
+							<option value={t} selected={thicknessFilter === t?.toString()}>
+								{t}
+							</option>
+						))}
+					</select>
+				</div>
+
+				{(vesdenFilter || thicknessFilter) && (
+					<div class="flex items-end">
+						<a
+							href={getRelativeLocaleUrl(locale, `category/${category}`)}
+							class="px-4 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600 transition-colors"
+						>
+							{locale === 'ru' ? 'Сбросить' : 'Reset'}
+						</a>
+					</div>
+				)}
+			</form>
+		</div>
+
+		{/* Posts Grid */}
+		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6 lg:mb-8">
+			{paginatedPosts.length > 0 ? (
+				paginatedPosts.map((post) => (
+					<CardArticle
+						title={post.data.title}
+						description={post.data.description}
+						tags={post.data.tags}
+						author={post.data.author}
+						date={post.data.date}
+						views={Math.floor(Math.random() * 1000) + 100}
+						rating={Number((Math.random() * 2 + 3).toFixed(1))}
+						slug={post.slug}
+						locale={locale}
+						category={post.data.category}
+						subcategory={post.data.subcategory}
+					/>
+				))
+			) : (
+				<p class="text-gray-400 col-span-full text-center py-8">
+					{locale === 'ru' ? 'Статьи не найдены' : 'No articles found'}
+				</p>
+			)}
+		</div>
+
+		{/* Pagination */}
+		{totalPages > 1 && (
+			<div class="flex justify-center gap-2">
+				{page > 1 && (
+					<a
+						href={getRelativeLocaleUrl(locale, `category/${category}?page=${page - 1}${vesdenFilter ? `&vesden=${vesdenFilter}` : ''}${thicknessFilter ? `&thickness=${thicknessFilter}` : ''}`)}
+						class="px-4 py-2 bg-block border border-gray-700 rounded-xl hover:bg-gray-800 transition-colors"
+					>
+						{locale === 'ru' ? 'Назад' : 'Previous'}
+					</a>
+				)}
+				
+				{Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+					<a
+						href={getRelativeLocaleUrl(locale, `category/${category}?page=${p}${vesdenFilter ? `&vesden=${vesdenFilter}` : ''}${thicknessFilter ? `&thickness=${thicknessFilter}` : ''}`)}
+						class={`px-4 py-2 rounded-xl transition-colors ${
+							p === page
+								? 'bg-accent-blue text-white'
+								: 'bg-block border border-gray-700 hover:bg-gray-800'
+						}`}
+					>
+						{p}
+					</a>
+				))}
+
+				{page < totalPages && (
+					<a
+						href={getRelativeLocaleUrl(locale, `category/${category}?page=${page + 1}${vesdenFilter ? `&vesden=${vesdenFilter}` : ''}${thicknessFilter ? `&thickness=${thicknessFilter}` : ''}`)}
+						class="px-4 py-2 bg-block border border-gray-700 rounded-xl hover:bg-gray-800 transition-colors"
+					>
+						{locale === 'ru' ? 'Вперед' : 'Next'}
+					</a>
+				)}
+			</div>
+		)}
+	</div>
+</BaseLayout>
+
+<style>
+	.prose {
+		color: rgb(209 213 219);
+	}
+	
+	.prose h1,
+	.prose h2,
+	.prose h3 {
+		color: rgb(255 255 255);
+		font-weight: 700;
+		margin-top: 1em;
+		margin-bottom: 0.5em;
+	}
+	
+	.prose p {
+		margin-top: 0.5em;
+		margin-bottom: 0.5em;
+		line-height: 1.75;
+	}
+</style>

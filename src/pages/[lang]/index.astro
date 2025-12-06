@@ -1,0 +1,265 @@
+---
+// Note: SSR mode with [lang] routing
+import BaseLayout from '../../components/Layout/BaseLayout.astro';
+import CardArticle from '../../components/CardArticle.astro';
+import CardProduct from '../../components/CardProduct.astro';
+import { getCollection } from 'astro:content';
+import { getTranslations } from '../../i18n';
+import { getRelativeLocaleUrl } from 'astro:i18n';
+
+// Get language from route parameter
+const { lang } = Astro.params;
+const locale = lang || 'ru';
+const t = getTranslations(locale as 'ru' | 'en');
+const allPosts = await getCollection('posts', ({ data }) => data.lang === locale);
+const articles = allPosts.slice(0, 6);
+
+const heroSlides = [
+	{
+		title: t.hero.slide1.title,
+		subtitle: t.hero.slide1.subtitle,
+		image: '/favicon.svg',
+		buttonText: t.hero.slide1.button,
+		buttonLink: getRelativeLocaleUrl(locale, 'category/products'),
+	},
+	{
+		title: t.hero.slide2.title,
+		subtitle: t.hero.slide2.subtitle,
+		image: '/favicon.svg',
+		buttonText: t.hero.slide2.button,
+		buttonLink: getRelativeLocaleUrl(locale, 'category/products'),
+	},
+	{
+		title: t.hero.slide3.title,
+		subtitle: t.hero.slide3.subtitle,
+		image: '/favicon.svg',
+		buttonText: t.hero.slide3.button,
+		buttonLink: getRelativeLocaleUrl(locale, 'category/articles'),
+	},
+];
+
+const products = [
+	{
+		title: 'Microsoft Office 365',
+		price: locale === 'ru' ? '2990' : '$30',
+		oldPrice: locale === 'ru' ? '3990' : '$40',
+		inStock: true,
+		badge: locale === 'ru' ? 'Популярное' : 'popular',
+		slug: 'office-365',
+	},
+	{
+		title: 'Adobe Creative Cloud',
+		price: locale === 'ru' ? '4990' : '$50',
+		oldPrice: null,
+		inStock: true,
+		badge: null,
+		slug: 'adobe-creative-cloud',
+	},
+	{
+		title: 'Windows 11 Pro',
+		price: locale === 'ru' ? '8990' : '$90',
+		oldPrice: locale === 'ru' ? '12990' : '$130',
+		inStock: true,
+		badge: locale === 'ru' ? 'Скидка' : 'sale',
+		slug: 'windows-11-pro',
+	},
+	{
+		title: 'AutoCAD 2024',
+		price: locale === 'ru' ? '14990' : '$150',
+		oldPrice: null,
+		inStock: false,
+		badge: null,
+		slug: 'autocad-2024',
+	},
+];
+---
+
+<BaseLayout title={t.pages.home.title} locale={locale}>	
+	<!-- Hero Section with Swiper - FULL WIDTH -->
+	<section class="relative overflow-hidden z-10 w-screen max-h-[600px]">
+		<div class="swiper hero-swiper w-full h-[600px]">
+			<div class="swiper-wrapper">
+				{heroSlides.map((slide, index) => (
+					<div class="swiper-slide">
+						<div class="relative w-full h-full flex items-center justify-center overflow-hidden hero-slide-bg">
+							{/* Demo background colors - замените на ваши изображения */}
+							<div class={`absolute inset-0 ${
+								index === 0 ? 'bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600' :
+								index === 1 ? 'bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600' :
+								'bg-gradient-to-br from-orange-600 via-red-600 to-rose-600'
+							}`}></div>
+							
+							{/* Background image with overlay */}
+							<div class="absolute inset-0 bg-gradient-to-b from-black/10 via-black/5 to-black/20"></div>
+							
+							{/* Content centered */}
+							<div class="relative z-10 text-center px-8 lg:px-16 max-w-5xl">
+								<h1 class="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 text-white leading-tight">
+									{slide.title}
+								</h1>
+								<p class="text-lg md:text-xl lg:text-2xl text-white/90 leading-relaxed mx-auto max-w-3xl">
+									{slide.subtitle}
+								</p>
+							</div>
+						</div>
+					</div>
+				))}
+			</div>
+			
+			{/* Controls overlay at top right */}
+			<div class="absolute top-8 right-8 z-50 flex items-center gap-4">
+				<div class="swiper-pagination-custom"></div>
+			</div>
+		</div>
+	</section>
+
+	<div class="w-full px-4 lg:px-8 lg:pl-[18.5rem] overflow-x-hidden relative mt-12 lg:mt-16">
+		<!-- Articles Section -->
+		<section class="mb-8 lg:mb-16">
+			<div class="flex items-center justify-between mb-6 lg:mb-8 px-0">
+				<h2 class="text-2xl lg:text-3xl font-bold text-gradient">
+					{t.pages.home.articles}
+				</h2>
+				<a href={getRelativeLocaleUrl(locale, 'category/articles')} class="text-accent-blue hover:text-blue-400 transition-all font-medium text-sm lg:text-base glass px-4 py-2 rounded-xl hover:bg-white/10 backdrop-blur-sm">
+					{t.common.seeAll}
+				</a>
+			</div>
+			<!-- Vertical list on mobile, grid on desktop -->
+			<div class="flex flex-col lg:grid lg:grid-cols-3 gap-0 lg:gap-6">
+				{articles.map((post) => (
+					<CardArticle
+						title={post.data.title}
+						description={post.data.description}
+						tags={post.data.tags}
+						author={post.data.author}
+						date={post.data.date}
+						views={Math.floor(Math.random() * 10000) + 1000}
+						rating={Number((Math.random() * 2 + 3).toFixed(1))}
+						comments={Math.floor(Math.random() * 50) + 5}
+						slug={post.slug}
+						locale={locale}
+						category={post.data.category}
+						subcategory={post.data.subcategory}
+					/>
+				))}
+			</div>
+		</section>
+
+		<!-- Products Section -->
+		<section>
+			<div class="flex items-center justify-between mb-6 lg:mb-8">
+				<h2 class="text-2xl lg:text-3xl font-bold text-gradient">
+					{t.pages.home.products}
+				</h2>
+				<a href={getRelativeLocaleUrl(locale, 'category/products')} class="text-accent-blue hover:text-blue-400 transition-all font-medium text-sm lg:text-base glass px-4 py-2 rounded-xl hover:bg-white/10 backdrop-blur-sm">
+					{t.common.seeAll}
+				</a>
+			</div>
+			<div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+				{products.map((product) => (
+					<CardProduct
+						title={product.title}
+						price={product.price}
+						oldPrice={product.oldPrice}
+						inStock={product.inStock}
+						badge={product.badge}
+						slug={product.slug}
+						locale={locale}
+					/>
+				))}
+			</div>
+		</section>
+	</div>
+</BaseLayout>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+<script>
+	document.addEventListener('DOMContentLoaded', () => {
+		// @ts-ignore
+		new Swiper('.hero-swiper', {
+			loop: true,
+			effect: 'fade',
+			fadeEffect: {
+				crossFade: true
+			},
+			autoplay: {
+				delay: 6000,
+				disableOnInteraction: false,
+			},
+			pagination: {
+				el: '.swiper-pagination-custom',
+				clickable: true,
+				renderBullet: function (index: number, className: string) {
+					return '<span class="' + className + ' custom-bullet"></span>';
+				},
+			},
+			speed: 1000,
+		});
+	});
+</script>
+
+<style>
+	/* Full width hero with max height */
+	.hero-swiper {
+		width: 100vw;
+		height: 600px;
+	}
+	
+	section:has(.hero-swiper) {
+		width: 100vw !important;
+		max-width: 100vw !important;
+		position: relative;
+	}
+
+	.swiper-slide {
+		display: flex;
+		width: 100%;
+		height: 100%;
+	}
+	
+	.hero-slide-bg {
+		background-size: cover;
+		background-position: center;
+		background-repeat: no-repeat;
+	}
+
+	/* Custom pagination bullets */
+	.swiper-pagination-custom {
+		position: static;
+		display: flex;
+		gap: 8px;
+		align-items: center;
+	}
+
+	:global(.custom-bullet) {
+		width: 8px;
+		height: 8px;
+		background: rgba(255, 255, 255, 0.4);
+		border-radius: 50%;
+		cursor: pointer;
+		transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		border: 1px solid rgba(255, 255, 255, 0.2);
+	}
+
+	:global(.custom-bullet:hover) {
+		background: rgba(255, 255, 255, 0.6);
+		transform: scale(1.2);
+	}
+
+	:global(.custom-bullet.swiper-pagination-bullet-active) {
+		width: 32px;
+		border-radius: 4px;
+		background: rgba(255, 255, 255, 0.9);
+		border-color: rgba(255, 255, 255, 0.4);
+	}
+	
+	/* Smooth transitions */
+	.swiper-slide {
+		transition: opacity 1s ease-in-out;
+	}
+	
+</style>
+

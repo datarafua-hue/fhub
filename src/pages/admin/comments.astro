@@ -1,0 +1,300 @@
+---
+export const prerender = false; // Server-side rendering for auth
+
+import BaseLayout from '../../components/Layout/BaseLayout.astro';
+import { createServerSupabaseClient } from '../../lib/supabase';
+
+const { user, profile } = Astro.locals;
+
+// Redirect if not admin
+if (!user || !profile?.is_admin) {
+  return Astro.redirect('/');
+}
+
+const accessToken = Astro.cookies.get('sb-access-token')?.value;
+const refreshToken = Astro.cookies.get('sb-refresh-token')?.value;
+const supabase = createServerSupabaseClient(accessToken, refreshToken);
+
+// Get filter from query params
+const filter = Astro.url.searchParams.get('filter') || 'pending';
+
+// Fetch comments based on filter
+let query = supabase
+  .from('comments')
+  .select('*, profiles(*)')
+  .eq('is_deleted', false)
+  .order('created_at', { ascending: false })
+  .limit(100);
+
+if (filter === 'pending') {
+  query = query.eq('is_approved', false);
+} else if (filter === 'approved') {
+  query = query.eq('is_approved', true);
+} else if (filter === 'deleted') {
+  query = supabase
+    .from('comments')
+    .select('*, profiles(*)')
+    .eq('is_deleted', true)
+    .order('created_at', { ascending: false })
+    .limit(100);
+}
+
+const { data: comments } = await query;
+
+// Get counts for tabs
+const pendingResult = await supabase
+  .from('comments')
+  .select('id', { count: 'exact', head: true })
+  .eq('is_approved', false)
+  .eq('is_deleted', false);
+
+const allResult = await supabase
+  .from('comments')
+  .select('id', { count: 'exact', head: true })
+  .eq('is_deleted', false);
+
+const deletedResult = await supabase
+  .from('comments')
+  .select('id', { count: 'exact', head: true })
+  .eq('is_deleted', true);
+
+const pendingCount = pendingResult?.count || 0;
+const allCount = allResult?.count || 0;
+const deletedCount = deletedResult?.count || 0;
+---
+
+<BaseLayout title="Модерация комментариев" seoTitle="Админ - Модерация комментариев">
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+        Модерация комментариев
+      </h1>
+      <p class="text-gray-600 dark:text-gray-400">
+        Управление комментариями пользователей
+      </p>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="flex gap-2 mb-6 overflow-x-auto">
+      <a
+        href="?filter=pending"
+        class={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          filter === 'pending'
+            ? 'bg-accent-blue text-white'
+            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+        }`}
+      >
+        На модерации ({pendingCount || 0})
+      </a>
+      <a
+        href="?filter=all"
+        class={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          filter === 'all'
+            ? 'bg-accent-blue text-white'
+            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+        }`}
+      >
+        Все ({allCount || 0})
+      </a>
+      <a
+        href="?filter=approved"
+        class={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          filter === 'approved'
+            ? 'bg-accent-blue text-white'
+            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+        }`}
+      >
+        Одобренные
+      </a>
+      <a
+        href="?filter=deleted"
+        class={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          filter === 'deleted'
+            ? 'bg-accent-blue text-white'
+            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+        }`}
+      >
+        Удаленные ({deletedCount || 0})
+      </a>
+    </div>
+
+    <!-- Comments List -->
+    {comments && comments.length > 0 ? (
+      <div class="space-y-4">
+        {comments.map((comment) => (
+          <div class="bg-white dark:bg-bg-block rounded-xl shadow-lg p-6">
+            <!-- Comment Header -->
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex items-center gap-3">
+                {comment.profiles.avatar_url ? (
+                  <img
+                    src={comment.profiles.avatar_url}
+                    alt={comment.profiles.username}
+                    class="w-12 h-12 rounded-full object-cover"
+                  />
+                ) : (
+                  <div class="w-12 h-12 rounded-full bg-accent-blue flex items-center justify-center text-white font-medium">
+                    {comment.profiles.username[0].toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-medium text-gray-900 dark:text-white">
+                      {comment.profiles.username}
+                    </span>
+                    {comment.profiles.is_admin && (
+                      <span class="px-2 py-0.5 bg-accent-blue text-white text-xs rounded-full">
+                        Admin
+                      </span>
+                    )}
+                    {comment.profiles.is_banned && (
+                      <span class="px-2 py-0.5 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs rounded-full">
+                        Banned
+                      </span>
+                    )}
+                  </div>
+                  <div class="text-sm text-gray-600 dark:text-gray-400">
+                    {new Date(comment.created_at).toLocaleString('ru-RU', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Status Badge -->
+              <div>
+                {comment.is_approved ? (
+                  <span class="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-sm rounded-full">
+                    Одобрено
+                  </span>
+                ) : (
+                  <span class="px-3 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-sm rounded-full">
+                    На модерации
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <!-- Comment Content -->
+            <div class="mb-4">
+              <div class="text-gray-900 dark:text-white mb-2">
+                {comment.content}
+              </div>
+              <div class="text-sm text-gray-500 dark:text-gray-400">
+                Пост: {comment.post_slug}
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+              {!comment.is_approved && !comment.is_deleted && (
+                <button
+                  data-action="approve"
+                  data-comment-id={comment.id}
+                  class="action-btn px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Одобрить
+                </button>
+              )}
+              {comment.is_approved && !comment.is_deleted && (
+                <button
+                  data-action="unapprove"
+                  data-comment-id={comment.id}
+                  class="action-btn px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                >
+                  Снять одобрение
+                </button>
+              )}
+              {!comment.is_deleted && (
+                <button
+                  data-action="delete"
+                  data-comment-id={comment.id}
+                  class="action-btn px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Удалить
+                </button>
+              )}
+              <a
+                href={`/admin/users?user=${comment.user_id}`}
+                class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Профиль пользователя
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div class="text-center py-12 bg-white dark:bg-bg-block rounded-xl">
+        <p class="text-gray-600 dark:text-gray-400">Комментариев не найдено</p>
+      </div>
+    )}
+  </div>
+</BaseLayout>
+
+<script>
+  // Handle admin actions
+  document.querySelectorAll('.action-btn').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      const button = e.currentTarget as HTMLButtonElement;
+      const action = button.dataset.action;
+      const commentId = button.dataset.commentId;
+
+      if (!action || !commentId) return;
+
+      // Confirm delete
+      if (action === 'delete') {
+        if (!confirm('Вы уверены, что хотите удалить этот комментарий?')) {
+          return;
+        }
+      }
+
+      button.disabled = true;
+      button.textContent = 'Обработка...';
+
+      try {
+        let response;
+        
+        if (action === 'approve' || action === 'unapprove') {
+          response = await fetch('/api/comments/approve', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              id: commentId,
+              approve: action === 'approve',
+            }),
+          });
+        } else if (action === 'delete') {
+          response = await fetch('/api/comments/delete', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id: commentId }),
+          });
+        }
+
+        if (response && response.ok) {
+          window.location.reload();
+        } else {
+          const data = await response?.json();
+          alert('Ошибка: ' + (data?.error || 'Неизвестная ошибка'));
+          button.disabled = false;
+          button.textContent = action === 'approve' ? 'Одобрить' : action === 'unapprove' ? 'Снять одобрение' : 'Удалить';
+        }
+      } catch (error) {
+        alert('Произошла ошибка');
+        button.disabled = false;
+        button.textContent = action === 'approve' ? 'Одобрить' : action === 'unapprove' ? 'Снять одобрение' : 'Удалить';
+      }
+    });
+  });
+</script>
+

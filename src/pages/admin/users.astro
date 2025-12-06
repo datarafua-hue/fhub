@@ -1,0 +1,278 @@
+---
+export const prerender = false; // Server-side rendering for auth
+
+import BaseLayout from '../../components/Layout/BaseLayout.astro';
+import { createServerSupabaseClient } from '../../lib/supabase';
+
+const { user, profile } = Astro.locals;
+
+// Redirect if not admin
+if (!user || !profile?.is_admin) {
+  return Astro.redirect('/');
+}
+
+const accessToken = Astro.cookies.get('sb-access-token')?.value;
+const refreshToken = Astro.cookies.get('sb-refresh-token')?.value;
+const supabase = createServerSupabaseClient(accessToken, refreshToken);
+
+// Get search query
+const search = Astro.url.searchParams.get('search') || '';
+const userId = Astro.url.searchParams.get('user');
+
+// Fetch users with stats
+let query = supabase
+  .from('profiles')
+  .select('*')
+  .order('created_at', { ascending: false })
+  .limit(50);
+
+if (search) {
+  query = query.or(`username.ilike.%${search}%,full_name.ilike.%${search}%`);
+}
+
+if (userId) {
+  query = query.eq('id', userId);
+}
+
+const { data: users } = await query;
+
+// Get stats for each user
+const usersWithStats = await Promise.all(
+  (users || []).map(async (userProfile) => {
+    try {
+      const { data: stats } = await supabase
+        .from('user_comment_stats')
+        .select('*')
+        .eq('user_id', userProfile.id)
+        .single();
+
+      return {
+        ...userProfile,
+        stats: stats || { total_comments: 0, approved_comments: 0, pending_comments: 0 },
+      };
+    } catch (error) {
+      return {
+        ...userProfile,
+        stats: { total_comments: 0, approved_comments: 0, pending_comments: 0 },
+      };
+    }
+  })
+);
+---
+
+<BaseLayout title="Управление пользователями" seoTitle="Админ - Управление пользователями">
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+        Управление пользователями
+      </h1>
+      <p class="text-gray-600 dark:text-gray-400">
+        Просмотр и управление пользователями сайта
+      </p>
+    </div>
+
+    <!-- Search -->
+    <div class="mb-6">
+      <form method="get" class="flex gap-2">
+        <input
+          type="text"
+          name="search"
+          value={search}
+          placeholder="Поиск по имени или username..."
+          class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-bg-dark text-gray-900 dark:text-white focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+        />
+        <button
+          type="submit"
+          class="px-6 py-2 bg-accent-blue text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          Поиск
+        </button>
+        {search && (
+          <a
+            href="/admin/users"
+            class="px-6 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          >
+            Сбросить
+          </a>
+        )}
+      </form>
+    </div>
+
+    <!-- Users List -->
+    {usersWithStats && usersWithStats.length > 0 ? (
+      <div class="space-y-4">
+        {usersWithStats.map((userProfile) => (
+          <div class="bg-white dark:bg-bg-block rounded-xl shadow-lg p-6">
+            <!-- User Header -->
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex items-center gap-4">
+                {userProfile.avatar_url ? (
+                  <img
+                    src={userProfile.avatar_url}
+                    alt={userProfile.username}
+                    class="w-16 h-16 rounded-full object-cover"
+                  />
+                ) : (
+                  <div class="w-16 h-16 rounded-full bg-accent-blue flex items-center justify-center text-white text-2xl font-medium">
+                    {userProfile.username[0].toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <div class="flex items-center gap-2 mb-1">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">
+                      {userProfile.username}
+                    </h3>
+                    {userProfile.is_admin && (
+                      <span class="px-2 py-0.5 bg-accent-blue text-white text-xs rounded-full">
+                        Admin
+                      </span>
+                    )}
+                    {userProfile.is_banned && (
+                      <span class="px-2 py-0.5 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs rounded-full">
+                        Banned
+                      </span>
+                    )}
+                  </div>
+                  {userProfile.full_name && (
+                    <p class="text-gray-600 dark:text-gray-400 mb-1">
+                      {userProfile.full_name}
+                    </p>
+                  )}
+                  <p class="text-sm text-gray-500 dark:text-gray-500">
+                    Зарегистрирован: {new Date(userProfile.created_at).toLocaleDateString('ru-RU', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 dark:bg-bg-dark rounded-lg">
+              <div class="text-center">
+                <div class="text-2xl font-bold text-gray-900 dark:text-white">
+                  {userProfile.stats.total_comments}
+                </div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">Комментариев</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {userProfile.stats.approved_comments}
+                </div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">Одобрено</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                  {userProfile.stats.pending_comments}
+                </div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">На модерации</div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+              {!userProfile.is_admin && (
+                <>
+                  {userProfile.is_banned ? (
+                    <button
+                      data-action="unban"
+                      data-user-id={userProfile.id}
+                      class="action-btn px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      Разбанить
+                    </button>
+                  ) : (
+                    <button
+                      data-action="ban"
+                      data-user-id={userProfile.id}
+                      class="action-btn px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      Забанить
+                    </button>
+                  )}
+                  <button
+                    data-action="make-admin"
+                    data-user-id={userProfile.id}
+                    class="action-btn px-4 py-2 bg-accent-blue text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    Сделать админом
+                  </button>
+                </>
+              )}
+              <a
+                href={`/admin/comments?user=${userProfile.id}`}
+                class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Комментарии пользователя
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div class="text-center py-12 bg-white dark:bg-bg-block rounded-xl">
+        <p class="text-gray-600 dark:text-gray-400">Пользователей не найдено</p>
+      </div>
+    )}
+  </div>
+</BaseLayout>
+
+<script>
+  // Handle admin actions
+  document.querySelectorAll('.action-btn').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      const button = e.currentTarget as HTMLButtonElement;
+      const action = button.dataset.action;
+      const userId = button.dataset.userId;
+
+      if (!action || !userId) return;
+
+      // Confirm actions
+      let confirmMessage = '';
+      if (action === 'ban') {
+        confirmMessage = 'Вы уверены, что хотите забанить этого пользователя?';
+      } else if (action === 'make-admin') {
+        confirmMessage = 'Вы уверены, что хотите сделать этого пользователя админом?';
+      }
+
+      if (confirmMessage && !confirm(confirmMessage)) {
+        return;
+      }
+
+      button.disabled = true;
+      const originalText = button.textContent;
+      button.textContent = 'Обработка...';
+
+      try {
+        const response = await fetch('/api/users/update', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            is_banned: action === 'ban' ? true : action === 'unban' ? false : undefined,
+            is_admin: action === 'make-admin' ? true : undefined,
+          }),
+        });
+
+        if (response.ok) {
+          window.location.reload();
+        } else {
+          const data = await response.json();
+          alert('Ошибка: ' + (data?.error || 'Неизвестная ошибка'));
+          button.disabled = false;
+          button.textContent = originalText;
+        }
+      } catch (error) {
+        alert('Произошла ошибка');
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    });
+  });
+</script>
+

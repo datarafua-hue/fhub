@@ -1,0 +1,412 @@
+---
+import { generateMenu } from '../../utils/menu';
+import { getCollection } from 'astro:content';
+import { getRelativeLocaleUrl } from 'astro:i18n';
+import { getTranslations } from '../../i18n';
+
+interface Props {
+	locale?: string;
+}
+
+const { locale } = Astro.props;
+const currentLocale = locale || Astro.currentLocale || 'ru';
+const t = getTranslations(currentLocale as 'ru' | 'en');
+
+// Генерируем меню из структуры папок categories
+const navItems = await generateMenu(currentLocale);
+
+// Получаем бренды
+const allBrands = await getCollection('brand', ({ data }) => data.lang === currentLocale);
+
+// Получаем все статьи для подсчета материалов по брендам
+const allPosts = await getCollection('posts', ({ data }) => data.lang === currentLocale);
+
+// Функция для подсчета материалов бренда
+function getBrandPostsCount(brandTitle: string): number {
+	return allPosts.filter(post => post.data.brand === brandTitle).length;
+}
+
+const currentPath = Astro.url.pathname;
+
+// Функция для генерации URL с учетом языка
+function getCategoryUrl(categorySlug: string, subcategorySlug?: string): string {
+	if (subcategorySlug) {
+		return getRelativeLocaleUrl(currentLocale, `category/${categorySlug}/${subcategorySlug}`);
+	}
+	return getRelativeLocaleUrl(currentLocale, `category/${categorySlug}`);
+}
+
+// Функция для проверки, является ли иконка SVG path или эмоджи
+function isEmoji(icon?: string): boolean {
+	if (!icon) return false;
+	// Проверяем, является ли это эмоджи (не содержит пробелов и начинается с не-ASCII символа)
+	return /^[\p{Emoji}\p{Symbol}]+$/u.test(icon.trim()) && icon.length <= 10;
+}
+---
+
+<aside class="hidden lg:flex fixed left-4 top-4 bottom-4 w-64 overflow-y-auto flex flex-col sidebar-container z-50">
+	<!-- Sidebar Background with gradient -->
+	<div class="sidebar-background"></div>
+	
+	<nav class="p-6 pt-8 flex-1 relative z-10">
+		<div class="mb-6">
+			<a href={getRelativeLocaleUrl(currentLocale, '/')} class="block group">
+				<div class="text-2xl font-bold text-white mb-1 group-hover:opacity-80 transition-opacity">FurnituraHub</div>
+				<div class="text-[11px] text-white/40 uppercase tracking-wider font-medium">{t.nav.hardwareCenter}</div>
+			</a>
+		</div>
+
+		<ul class="space-y-2">
+			{navItems.map((item) => {
+				// Проверяем активность категории (включая страницы товаров)
+				const isActive = currentPath.includes(`/category/${item.slug}`) || 
+				                 currentPath.includes(`category/${item.slug}/`) ||
+				                 currentPath.includes(`/posts/${item.slug}/`);
+				const hasChildren = item.children && item.children.length > 0;
+				const itemId = `nav-item-${item.slug}`;
+				
+				// Проверяем, активна ли категория или её подкатегория (включая страницы товаров)
+				const hasActiveChild = hasChildren && item.children.some(child => 
+					currentPath.includes(`/category/${item.slug}/${child.slug}`) || 
+					currentPath.includes(`category/${item.slug}/${child.slug}`) ||
+					currentPath.includes(`/posts/${item.slug}/${child.slug}/`)
+				);
+				const shouldBeExpanded = isActive || hasActiveChild;
+				
+				return (
+					<li class={shouldBeExpanded ? 'expanded' : ''}>
+						<div class="group">
+							{hasChildren ? (
+								<button
+									class={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all text-left ${
+										isActive
+											? 'sidebar-item-active'
+											: 'sidebar-item'
+									}`}
+									data-target={itemId}
+									type="button"
+								>
+									<div class="flex items-center gap-3">
+										{item.icon && isEmoji(item.icon) ? (
+											<span class="text-lg flex-shrink-0 sidebar-icon">{item.icon}</span>
+										) : item.icon ? (
+											<svg class="w-5 h-5 flex-shrink-0 sidebar-icon" fill="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d={item.icon} />
+											</svg>
+										) : null}
+										<span class="text-[15px] sidebar-text">{item.name}</span>
+									</div>
+									<svg class="w-3.5 h-3.5 transform transition-transform nav-toggle-icon sidebar-icon opacity-50" fill="currentColor" viewBox="0 0 24 24">
+										<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" />
+									</svg>
+								</button>
+							) : (
+								<a
+									href={getCategoryUrl(item.slug)}
+									class={`flex items-center px-4 py-2.5 rounded-xl transition-all ${
+										isActive
+											? 'sidebar-item-active'
+											: 'sidebar-item'
+									}`}
+								>
+									<div class="flex items-center gap-3">
+										{item.icon && isEmoji(item.icon) ? (
+											<span class="text-lg flex-shrink-0 sidebar-icon">{item.icon}</span>
+										) : item.icon ? (
+											<svg class="w-5 h-5 flex-shrink-0 sidebar-icon" fill="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d={item.icon} />
+											</svg>
+										) : null}
+										<span class="text-[15px] sidebar-text">{item.name}</span>
+									</div>
+								</a>
+							)}
+							{hasChildren && (
+								<ul id={itemId} class={shouldBeExpanded ? 'mt-1 ml-9 space-y-0.5 nav-children' : 'hidden mt-1 ml-9 space-y-0.5 nav-children'}>
+									{item.children.map((child) => {
+										const isChildActive = currentPath.includes(`/category/${item.slug}/${child.slug}`) || 
+										                      currentPath.includes(`category/${item.slug}/${child.slug}`) ||
+										                      currentPath.includes(`/posts/${item.slug}/${child.slug}/`);
+										return (
+											<li>
+												<a
+													href={getCategoryUrl(item.slug, child.slug)}
+													class={`block px-3 py-2 rounded-lg transition-all sidebar-subitem ${
+														isChildActive
+															? 'sidebar-subitem-active'
+															: ''
+													}`}
+												>
+													{child.name}
+												</a>
+											</li>
+										);
+									})}
+								</ul>
+							)}
+						</div>
+					</li>
+				);
+			})}
+		</ul>
+	</nav>
+
+	<!-- Brands Section -->
+	<div class="px-6 pb-6 border-t border-white/5 relative z-10 rounded-b-3xl">
+		<h3 class="text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-3 mt-6">
+			{t.nav.brands}
+		</h3>
+		<div class="brands-scroll-container space-y-2">
+			{allBrands.map((brand) => {
+				const brandSlug = brand.id.split('/')[0];
+				const isActive = currentPath.includes(`/brands/${brandSlug}`);
+				const postsCount = getBrandPostsCount(brand.data.title);
+				const sidebarDescription = brand.data.descriptionSlidebar || brand.data.description;
+				return (
+					<a
+						href={getRelativeLocaleUrl(currentLocale, `brands/${brandSlug}`)}
+						class={`block p-2.5 rounded-xl transition-all group ${
+							isActive
+								? 'bg-white/12'
+								: 'bg-transparent hover:bg-white/6'
+						}`}
+					>
+						<div class="flex items-center gap-3">
+							<div class={`w-12 h-12 flex-shrink-0 rounded-lg flex items-center justify-center overflow-hidden transition-all ${
+								isActive ? 'bg-white/10' : 'bg-white/5 group-hover:bg-white/8'
+							}`}>
+								{brand.data.logo ? (
+									<img 
+										src={brand.data.logo} 
+										alt={brand.data.title}
+										class="w-full h-full object-contain p-2"
+									/>
+								) : (
+									<span class="text-base font-semibold text-white/50">{brand.data.title.charAt(0)}</span>
+								)}
+							</div>
+							<div class="flex-1 min-w-0">
+								<div class={`text-[15px] transition-colors ${
+									isActive ? 'text-white font-medium' : 'text-white/70 group-hover:text-white/90'
+								}`}>
+									{brand.data.title}
+								</div>
+								{sidebarDescription && (
+									<p class={`text-[11px] leading-snug line-clamp-1 transition-colors mt-0.5 ${
+										isActive ? 'text-white/50' : 'text-white/40 group-hover:text-white/50'
+									}`}>
+										{sidebarDescription}
+									</p>
+								)}
+							</div>
+							{postsCount > 0 && (
+								<span class={`text-[11px] px-1.5 py-0.5 rounded transition-colors ${
+									isActive 
+										? 'text-white/60' 
+										: 'text-white/40 group-hover:text-white/50'
+								}`}>
+									{postsCount}
+								</span>
+							)}
+						</div>
+					</a>
+				);
+			})}
+		</div>
+	</div>
+
+	<div class="p-6 pb-8 border-t border-white/5 relative z-10 rounded-b-3xl">
+		<p class="text-[11px] text-white/40 mb-3 leading-relaxed">
+			{currentLocale === 'ru' ? (
+				<>
+					Избранные публикации после{' '}
+					<a href={getRelativeLocaleUrl(currentLocale, 'register')} class="text-white/60 hover:text-white/80 transition-colors underline">Регистрации</a>
+				</>
+			) : (
+				<>
+					Selected publications after{' '}
+					<a href={getRelativeLocaleUrl(currentLocale, 'register')} class="text-white/60 hover:text-white/80 transition-colors underline">Registration</a>
+				</>
+			)}
+		</p>
+		<p class="text-[11px] text-white/30">
+			{t.sidebar.copyright}
+		</p>
+	</div>
+</aside>
+
+<style>
+	.sidebar-container {
+		/* Эффект темного жидкого стекла (dark glassmorphism) */
+		background: rgba(20, 20, 25, 0.75);
+		backdrop-filter: blur(60px) saturate(180%);
+		-webkit-backdrop-filter: blur(60px) saturate(180%);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 24px;
+		box-shadow: 
+			0 8px 32px rgba(0, 0, 0, 0.5),
+			inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
+	}
+	
+	.sidebar-background {
+		position: absolute;
+		inset: 0;
+		background: 
+			linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 50%),
+			radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.03) 0%, transparent 50%);
+		pointer-events: none;
+		z-index: 0;
+		opacity: 0.5;
+		border-radius: 24px;
+	}
+	
+	.sidebar-item {
+		background: transparent;
+		border: none;
+		color: rgba(255, 255, 255, 0.7);
+		font-weight: 400;
+		letter-spacing: -0.01em;
+	}
+	
+	.sidebar-item:hover {
+		background: rgba(255, 255, 255, 0.08);
+		color: rgb(255, 255, 255);
+		transform: none;
+	}
+	
+	.sidebar-item-active {
+		background: rgba(255, 255, 255, 0.12);
+		color: rgb(255, 255, 255);
+		font-weight: 500;
+	}
+	
+	.sidebar-item-active .sidebar-icon,
+	.sidebar-item-active .sidebar-text {
+		color: rgb(255, 255, 255);
+	}
+	
+	.sidebar-item .sidebar-icon {
+		color: rgba(255, 255, 255, 0.6);
+		transition: all 0.2s ease;
+	}
+	
+	.sidebar-item:hover .sidebar-icon {
+		color: rgba(255, 255, 255, 0.9);
+	}
+	
+	.sidebar-subitem {
+		background: transparent;
+		border: none;
+		color: rgba(255, 255, 255, 0.6);
+		font-weight: 400;
+		font-size: 0.875rem;
+	}
+	
+	.sidebar-subitem:hover {
+		background: rgba(255, 255, 255, 0.06);
+		color: rgba(255, 255, 255, 0.85);
+		transform: none;
+	}
+	
+	.sidebar-subitem-active {
+		background: rgba(255, 255, 255, 0.1);
+		color: rgb(255, 255, 255);
+		font-weight: 500;
+	}
+
+	aside {
+		scrollbar-width: thin;
+		scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+		overflow: overlay;
+	}
+
+	aside::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	aside::-webkit-scrollbar-track {
+		background: transparent;
+		margin: 12px 0;
+	}
+
+	aside::-webkit-scrollbar-thumb {
+		background-color: rgba(255, 255, 255, 0.15);
+		border-radius: 10px;
+		border: 2px solid transparent;
+		background-clip: padding-box;
+	}
+
+	aside::-webkit-scrollbar-thumb:hover {
+		background-color: rgba(255, 255, 255, 0.25);
+	}
+
+	li.expanded .nav-children {
+		display: block;
+	}
+
+	li.expanded .nav-toggle-icon {
+		transform: rotate(180deg);
+	}
+
+	.line-clamp-2 {
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+
+	.brands-scroll-container {
+		max-height: 280px;
+		overflow-y: auto;
+		overflow-x: hidden;
+		padding-right: 4px;
+		margin-right: -4px;
+	}
+
+	.brands-scroll-container::-webkit-scrollbar {
+		width: 3px;
+	}
+
+	.brands-scroll-container::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	.brands-scroll-container::-webkit-scrollbar-thumb {
+		background-color: rgba(255, 255, 255, 0.15);
+		border-radius: 10px;
+	}
+
+	.brands-scroll-container::-webkit-scrollbar-thumb:hover {
+		background-color: rgba(255, 255, 255, 0.25);
+	}
+
+	.brands-scroll-container {
+		scrollbar-width: thin;
+		scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+	}
+
+	/* Center sidebar on large screens */
+	@media (min-width: 1440px) {
+		aside {
+			left: calc((100vw - 1440px) / 2 + 1rem);
+		}
+	}
+</style>
+
+<script>
+	document.addEventListener('DOMContentLoaded', () => {
+		const toggleButtons = document.querySelectorAll('button[data-target]');
+		toggleButtons.forEach((button) => {
+			button.addEventListener('click', (e) => {
+				e.preventDefault();
+				const targetId = button.getAttribute('data-target');
+				const listItem = button.closest('li');
+				const children = listItem?.querySelector('.nav-children');
+				
+				if (listItem && children) {
+					listItem.classList.toggle('expanded');
+				}
+			});
+		});
+	});
+</script>

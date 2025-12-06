@@ -1,0 +1,94 @@
+---
+import Header from './Header.astro';
+import Sidebar from './Sidebar.astro';
+import '../../styles/comments.css';
+
+interface Props {
+	title?: string;
+	locale?: string;
+	bgImagesPost?: string;
+}
+
+const { title = 'FurnituraHub', locale, bgImagesPost } = Astro.props;
+const currentLocale = locale || Astro.currentLocale || 'ru';
+---
+
+<!doctype html>
+<html lang={currentLocale} class="dark" style="background-color: #1e1e1e;">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+		<script>
+			// Dark mode initialization
+			if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+				document.documentElement.classList.add('dark');
+			} else {
+				document.documentElement.classList.remove('dark');
+			}
+		</script>
+	</head>
+	<body class="text-white font-sans antialiased overflow-x-hidden" style="background-color: #1e1e1e;">
+		<div class="min-h-screen overflow-x-hidden relative flex justify-center">
+			<div class="w-full max-w-[1440px] relative">
+				<Sidebar locale={currentLocale} />
+				<Header locale={currentLocale} />
+				<main 
+					class={`overflow-x-hidden relative pt-20 lg:pt-24 ${bgImagesPost ? 'bg_cover' : ''}`}
+					style={bgImagesPost ? `--bg-img: url(${bgImagesPost});` : undefined}
+				>
+					<slot />
+				</main>
+			</div>
+		</div>
+	</body>
+</html>
+
+<style is:global>
+	html {
+		scroll-behavior: smooth;
+		overflow-x: hidden;
+		width: 100%;
+	}
+	
+	body {
+		overflow-x: hidden;
+		width: 100%;
+		position: relative;
+	}
+	
+	* {
+		transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+		transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+		transition-duration: 200ms;
+	}
+	
+	/* Prevent horizontal scroll */
+	* {
+		max-width: 100%;
+	}
+
+	/* Background cover positioning */
+	main.bg_cover {
+		position: relative;
+	}
+
+	.bg_cover::before {
+		background: -o-radial-gradient(50% 0, 50% 100%, rgba(30, 30, 30, .5) 0, #1e1e1e 100%), var(--bg-img);
+		background: radial-gradient(50% 100% at 50% 0, rgba(30, 30, 30, .5) 0, #1e1e1e 100%), var(--bg-img);
+		background-repeat: no-repeat;
+		background-size: 100%;
+		content: "";
+		display: block;
+		height: 500px;
+		position: absolute;
+		right: 0;
+		top: 0;
+		width: 100%;
+		z-index: 0;
+	}
+
+</style>
+

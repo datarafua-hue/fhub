@@ -1,0 +1,6 @@
+---
+// Post page - Russian version (rewrite to [lang])
+const { slug } = Astro.params;
+const response = await Astro.rewrite(`/ru/posts/${slug}`);
+return response;
+---

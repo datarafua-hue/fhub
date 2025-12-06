@@ -1,0 +1,293 @@
+---
+export const prerender = false; // Server-side rendering for auth
+
+import BaseLayout from '../components/Layout/BaseLayout.astro';
+import { createServerSupabaseClient } from '../lib/supabase';
+
+const { user, profile } = Astro.locals;
+
+// Redirect if not logged in
+if (!user || !profile) {
+  return Astro.redirect('/');
+}
+
+// Get user's comments
+const accessToken = Astro.cookies.get('sb-access-token')?.value;
+const refreshToken = Astro.cookies.get('sb-refresh-token')?.value;
+const supabase = createServerSupabaseClient(accessToken, refreshToken);
+
+const commentsResult = await supabase
+  .from('comments')
+  .select('*, profiles(*)')
+  .eq('user_id', user.id)
+  .eq('is_deleted', false)
+  .order('created_at', { ascending: false })
+  .limit(10);
+
+const statsResult = await supabase
+  .from('user_comment_stats')
+  .select('*')
+  .eq('user_id', user.id)
+  .single();
+
+const comments = commentsResult?.data || [];
+const stats = statsResult?.data || null;
+---
+
+<BaseLayout title="Профиль" seoTitle="Мой профиль">
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    <!-- Profile Header -->
+    <div class="bg-white dark:bg-bg-block rounded-2xl shadow-lg p-6 mb-6">
+      <div class="flex items-start gap-6">
+        <!-- Avatar -->
+        <div class="relative">
+          <img
+            id="avatar-preview"
+            src={profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.username)}&size=128&background=276ef1&color=fff`}
+            alt={profile.username}
+            class="w-32 h-32 rounded-full object-cover border-4 border-gray-200 dark:border-gray-700"
+          />
+          <label
+            for="avatar-upload"
+            class="absolute bottom-0 right-0 bg-accent-blue text-white rounded-full p-2 cursor-pointer hover:bg-blue-600 transition-colors"
+          >
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </label>
+          <input
+            type="file"
+            id="avatar-upload"
+            accept="image/*"
+            class="hidden"
+          />
+        </div>
+
+        <!-- Profile Info -->
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-2">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+              {profile.username}
+            </h1>
+            {profile.is_admin && (
+              <span class="px-3 py-1 bg-accent-blue text-white text-sm rounded-full">
+                Admin
+              </span>
+            )}
+          </div>
+          <p class="text-gray-600 dark:text-gray-400 mb-4">{user.email}</p>
+          
+          <button
+            id="edit-profile-btn"
+            class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          >
+            Редактировать профиль
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      {stats && (
+        <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div class="grid grid-cols-3 gap-4">
+            <div class="text-center">
+              <div class="text-2xl font-bold text-gray-900 dark:text-white">
+                {stats.total_comments}
+              </div>
+              <div class="text-sm text-gray-600 dark:text-gray-400">Комментариев</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-green-600 dark:text-green-400">
+                {stats.approved_comments}
+              </div>
+              <div class="text-sm text-gray-600 dark:text-gray-400">Одобрено</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                {stats.pending_comments}
+              </div>
+              <div class="text-sm text-gray-600 dark:text-gray-400">На модерации</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+
+    <!-- Edit Profile Form (Hidden by default) -->
+    <div id="edit-profile-form" class="hidden bg-white dark:bg-bg-block rounded-2xl shadow-lg p-6 mb-6">
+      <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Редактировать профиль</h2>
+      <form id="profile-form" class="space-y-4">
+        <div>
+          <label for="edit-username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Имя пользователя
+          </label>
+          <input
+            type="text"
+            id="edit-username"
+            value={profile.username}
+            class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-bg-dark text-gray-900 dark:text-white focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+          />
+        </div>
+        <div>
+          <label for="edit-fullname" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Полное имя
+          </label>
+          <input
+            type="text"
+            id="edit-fullname"
+            value={profile.full_name || ''}
+            class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-bg-dark text-gray-900 dark:text-white focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+          />
+        </div>
+        <div id="profile-error" class="hidden text-sm text-red-600 dark:text-red-400"></div>
+        <div id="profile-success" class="hidden text-sm text-green-600 dark:text-green-400"></div>
+        <div class="flex gap-2">
+          <button
+            type="submit"
+            class="px-4 py-2 bg-accent-blue text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Сохранить
+          </button>
+          <button
+            type="button"
+            id="cancel-edit-btn"
+            class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          >
+            Отмена
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Recent Comments -->
+    <div class="bg-white dark:bg-bg-block rounded-2xl shadow-lg p-6">
+      <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Мои комментарии</h2>
+      
+      {comments && comments.length > 0 ? (
+        <div class="space-y-4">
+          {comments.map((comment) => (
+            <div class="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-0">
+              <div class="flex items-start justify-between mb-2">
+                <div class="text-sm text-gray-600 dark:text-gray-400">
+                  {new Date(comment.created_at).toLocaleDateString('ru-RU', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </div>
+                <div class="flex gap-2">
+                  {comment.is_approved ? (
+                    <span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded-full">
+                      Одобрено
+                    </span>
+                  ) : (
+                    <span class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-xs rounded-full">
+                      На модерации
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div class="text-gray-900 dark:text-white">
+                {comment.content.substring(0, 200)}{comment.content.length > 200 ? '...' : ''}
+              </div>
+              <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                К посту: {comment.post_slug}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p class="text-gray-600 dark:text-gray-400">У вас пока нет комментариев</p>
+      )}
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { uploadAvatar, updateUserProfile } from '../lib/supabase';
+
+  const editBtn = document.getElementById('edit-profile-btn');
+  const cancelBtn = document.getElementById('cancel-edit-btn');
+  const editForm = document.getElementById('edit-profile-form');
+  const profileForm = document.getElementById('profile-form') as HTMLFormElement;
+  const avatarUpload = document.getElementById('avatar-upload') as HTMLInputElement;
+  const avatarPreview = document.getElementById('avatar-preview') as HTMLImageElement;
+
+  // Show/hide edit form
+  editBtn?.addEventListener('click', () => {
+    editForm?.classList.remove('hidden');
+  });
+
+  cancelBtn?.addEventListener('click', () => {
+    editForm?.classList.add('hidden');
+  });
+
+  // Avatar upload
+  avatarUpload?.addEventListener('change', async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+
+    // Preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (avatarPreview && e.target?.result) {
+        avatarPreview.src = e.target.result as string;
+      }
+    };
+    reader.readAsDataURL(file);
+
+    // Upload
+    const userId = avatarPreview.dataset.userId;
+    if (!userId) return;
+
+    const { path, error } = await uploadAvatar(userId, file);
+    if (error) {
+      alert('Ошибка загрузки аватара: ' + error.message);
+    } else if (path) {
+      // Update profile with new avatar URL
+      await updateUserProfile(userId, { avatar_url: path });
+      alert('Аватар обновлен!');
+    }
+  });
+
+  // Update profile
+  profileForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const username = (document.getElementById('edit-username') as HTMLInputElement).value;
+    const fullname = (document.getElementById('edit-fullname') as HTMLInputElement).value;
+    const errorDiv = document.getElementById('profile-error');
+    const successDiv = document.getElementById('profile-success');
+    
+    const userId = avatarPreview.dataset.userId;
+    if (!userId) return;
+
+    const { profile, error } = await updateUserProfile(userId, {
+      username,
+      full_name: fullname,
+    });
+
+    if (error) {
+      errorDiv?.classList.remove('hidden');
+      successDiv?.classList.add('hidden');
+      errorDiv!.textContent = error.message;
+    } else {
+      errorDiv?.classList.add('hidden');
+      successDiv?.classList.remove('hidden');
+      successDiv!.textContent = 'Профиль обновлен!';
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    }
+  });
+</script>
+
+<script define:vars={{ userId: user.id }}>
+  // Pass userId to the script
+  const avatarPreview = document.getElementById('avatar-preview');
+  if (avatarPreview) {
+    avatarPreview.dataset.userId = userId;
+  }
+</script>
+

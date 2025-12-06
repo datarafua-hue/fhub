@@ -1,0 +1,90 @@
+export const en = {
+	common: {
+		search: 'Search on site',
+		login: 'Log in',
+		seeAll: 'See all',
+		back: 'Back',
+		next: 'Next',
+		previous: 'Previous',
+		reset: 'Reset',
+		all: 'All',
+		noResults: 'No articles found',
+	},
+	nav: {
+		home: 'Home',
+		brands: 'Brands',
+		hardwareCenter: 'hardware center',
+	},
+	pages: {
+		home: {
+			title: 'FurnituraHub - Home',
+			articles: 'Articles',
+			products: 'Products',
+		},
+		brands: {
+			title: 'Brands - FurnituraHub',
+		},
+	},
+	hero: {
+		slide1: {
+			title: 'Modern Door Hardware',
+			subtitle: 'Quality and Reliability',
+			button: 'Learn More',
+		},
+		slide2: {
+			title: 'Innovative Solutions',
+			subtitle: 'For Your Home',
+			button: 'View Catalog',
+		},
+		slide3: {
+			title: 'Professional Installation',
+			subtitle: 'Experience and Craftsmanship',
+			button: 'Contact Us',
+		},
+	},
+	category: {
+		subcategories: 'Subcategories',
+		articles: 'articles',
+		filters: 'Filters',
+		weight: 'Door Leaf Weight (kg)',
+		thickness: 'Thickness (mm)',
+		doorLeafWeight: 'Door leaf weight',
+		thicknessLabel: 'Thickness',
+		backToCategory: 'Back to category',
+	},
+	product: {
+		inStock: 'IN STOCK',
+		popular: 'POPULAR',
+		sale: 'SALE',
+	},
+	brand: {
+		articlesAbout: (brand: string) => `Articles about ${brand}`,
+	},
+	sidebar: {
+		posts: 'posts',
+		copyright: 'For copyright holders (DMCA)',
+	},
+	post: {
+		specifications: 'Specifications',
+		faq: 'FAQ',
+		systemRequirements: 'System Requirements',
+		download: 'Download',
+		similar: 'Similar Articles',
+		description: 'Description',
+		version: 'Version',
+		developer: 'Developer',
+		interfaceLanguage: 'Interface Language',
+		activation: 'Activation (RG)',
+		supportedDevices: 'Supported Devices',
+		architecture: 'Architecture',
+		buyInOfficialStore: 'Buy in official store',
+		noThreatsFound: 'No threats found.',
+		moreDetails: 'More details...',
+		addToFavorites: 'Add to favorites',
+		published: 'Published (modified):',
+		views: 'Views:',
+		showMore: 'Show more',
+		showLess: 'Show less',
+	},
+} as const;
+

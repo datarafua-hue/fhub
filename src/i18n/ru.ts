@@ -1,0 +1,90 @@
+export const ru = {
+	common: {
+		search: 'Поиск по сайту',
+		login: 'Войти',
+		seeAll: 'См. все',
+		back: 'Назад',
+		next: 'Вперед',
+		previous: 'Назад',
+		reset: 'Сбросить',
+		all: 'Все',
+		noResults: 'Статьи не найдены',
+	},
+	nav: {
+		home: 'Главная',
+		brands: 'Бренды',
+		hardwareCenter: 'центр фурнитуры',
+	},
+	pages: {
+		home: {
+			title: 'FurnituraHub - Главная',
+			articles: 'Статьи',
+			products: 'Товары',
+		},
+		brands: {
+			title: 'Бренды - FurnituraHub',
+		},
+	},
+	hero: {
+		slide1: {
+			title: 'Современная фурнитура для дверей',
+			subtitle: 'Качество и надежность',
+			button: 'Узнать больше',
+		},
+		slide2: {
+			title: 'Инновационные решения',
+			subtitle: 'Для вашего дома',
+			button: 'Смотреть каталог',
+		},
+		slide3: {
+			title: 'Профессиональная установка',
+			subtitle: 'Опыт и мастерство',
+			button: 'Связаться с нами',
+		},
+	},
+	category: {
+		subcategories: 'Подкатегории',
+		articles: 'статей',
+		filters: 'Фильтры',
+		weight: 'Вес дверного полотна (кг)',
+		thickness: 'Толщина (мм)',
+		doorLeafWeight: 'Вес дверного полотна',
+		thicknessLabel: 'Толщина',
+		backToCategory: 'Назад к категории',
+	},
+	product: {
+		inStock: 'В НАЛИЧИИ',
+		popular: 'ПОПУЛЯРНОЕ',
+		sale: 'СКИДКА',
+	},
+	brand: {
+		articlesAbout: (brand: string) => `Статьи о ${brand}`,
+	},
+	sidebar: {
+		posts: 'мат.',
+		copyright: 'Правообладателям (DMCA)',
+	},
+	post: {
+		specifications: 'Характеристики',
+		faq: 'Часто задаваемые вопросы',
+		systemRequirements: 'Системные требования',
+		download: 'Скачать',
+		similar: 'Похожие статьи',
+		description: 'Описание',
+		version: 'Версия',
+		developer: 'Разработчик',
+		interfaceLanguage: 'Язык интерфейса',
+		activation: 'Активация (RG)',
+		supportedDevices: 'Поддерживаемые устройства',
+		architecture: 'Архитектура',
+		buyInOfficialStore: 'Купить в официальном магазине',
+		noThreatsFound: 'Угроз не найдено.',
+		moreDetails: 'Подробнее...',
+		addToFavorites: 'Добавить в избранное',
+		published: 'Опубликовано (изменено):',
+		views: 'Просмотры:',
+		showMore: 'Показать больше',
+		showLess: 'Показать меньше',
+	},
+} as const;
+

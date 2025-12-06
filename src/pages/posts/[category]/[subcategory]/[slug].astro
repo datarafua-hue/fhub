@@ -1,0 +1,6 @@
+---
+// Post page with category - Russian version (rewrite to [lang])
+const { category, subcategory, slug } = Astro.params;
+const response = await Astro.rewrite(`/ru/posts/${category}/${subcategory}/${slug}`);
+return response;
+---

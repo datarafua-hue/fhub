@@ -1,0 +1,131 @@
+---
+import BaseLayout from '../../../components/Layout/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+import CardArticle from '../../../components/CardArticle.astro';
+
+export async function getStaticPaths() {
+	const allBrands = await getCollection('brand');
+	
+	// Группируем бренды по slug (удаляем язык из ID)
+	const brandsBySlug = new Map();
+	
+	for (const brand of allBrands) {
+		const slug = brand.id.split('/')[0];
+		if (!brandsBySlug.has(slug)) {
+			brandsBySlug.set(slug, []);
+		}
+		brandsBySlug.get(slug).push(brand);
+	}
+	
+	// Возвращаем уникальные slug
+	return Array.from(brandsBySlug.keys()).map(slug => ({
+		params: { slug }
+	}));
+}
+
+const { lang, slug } = Astro.params;
+const locale = lang || 'ru';
+
+// Получаем бренд для текущей локали
+const allBrands = await getCollection('brand', ({ data }) => data.lang === locale);
+const brand = allBrands.find(b => b.id.startsWith(slug + '/'));
+
+if (!brand) {
+	return Astro.redirect(`/${locale === 'en' ? 'en/' : ''}brands`);
+}
+
+const { Content } = await brand.render();
+
+// Получаем статьи с этим брендом
+const allPosts = await getCollection('posts', ({ data }) => 
+	data.lang === locale && data.brand === brand.data.title
+);
+---
+
+<BaseLayout 
+	title={`${brand.data.title} - FurnituraHub`} 
+	locale={locale}
+>
+	<div class="px-4 lg:px-8 lg:pl-[18.5rem] py-8">
+		<div class="mb-8">
+			<div class="flex items-center gap-6 mb-6">
+				<div class="w-24 h-24 flex-shrink-0 bg-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
+					{brand.data.logo ? (
+						<img 
+							src={brand.data.logo} 
+							alt={brand.data.title}
+							class="w-full h-full object-contain p-3"
+						/>
+					) : (
+						<span class="text-4xl font-semibold text-gray-400">{brand.data.title.charAt(0)}</span>
+					)}
+				</div>
+				<div>
+					<h1 class="text-3xl lg:text-4xl font-bold text-white mb-2">{brand.data.title}</h1>
+					{brand.data.website && (
+						<a 
+							href={brand.data.website} 
+							target="_blank" 
+							rel="noopener noreferrer"
+							class="text-accent-blue hover:text-blue-400 transition-colors text-sm"
+						>
+							{brand.data.website}
+						</a>
+					)}
+				</div>
+			</div>
+			<div class="prose prose-invert max-w-none">
+				<div class="text-gray-300 leading-relaxed">
+					<Content />
+				</div>
+			</div>
+		</div>
+
+		{allPosts.length > 0 && (
+			<div>
+				<h2 class="text-2xl lg:text-3xl font-bold text-white mb-6">
+					{locale === 'ru' ? `Статьи о ${brand.data.title}` : `Articles about ${brand.data.title}`}
+				</h2>
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+					{allPosts.map((post) => (
+						<CardArticle
+							title={post.data.title}
+							description={post.data.description}
+							tags={post.data.tags}
+							author={post.data.author}
+							date={post.data.date}
+							views={Math.floor(Math.random() * 10000) + 1000}
+							rating={Number((Math.random() * 2 + 3).toFixed(1))}
+							comments={Math.floor(Math.random() * 50) + 5}
+							slug={post.slug}
+							locale={locale}
+							category={post.data.category}
+							subcategory={post.data.subcategory}
+						/>
+					))}
+				</div>
+			</div>
+		)}
+	</div>
+</BaseLayout>
+
+<style>
+	.prose {
+		color: rgb(209 213 219);
+	}
+	
+	.prose h1,
+	.prose h2,
+	.prose h3 {
+		color: rgb(255 255 255);
+		font-weight: 700;
+		margin-top: 1em;
+		margin-bottom: 0.5em;
+	}
+	
+	.prose p {
+		margin-top: 0.5em;
+		margin-bottom: 0.5em;
+		line-height: 1.75;
+	}
+</style>

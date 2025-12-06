@@ -1,0 +1,457 @@
+---
+import { generateMenu } from '../../utils/menu';
+import { getRelativeLocaleUrl } from 'astro:i18n';
+import { getTranslations } from '../../i18n';
+import { getCollection } from 'astro:content';
+
+interface Props {
+	locale?: string;
+}
+
+const { locale } = Astro.props;
+const currentLocale = locale || Astro.currentLocale || 'ru';
+const t = getTranslations(currentLocale as 'ru' | 'en');
+const otherLocale = currentLocale === 'ru' ? 'en' : 'ru';
+let currentPath = Astro.url.pathname;
+// Убираем префикс /en или /ru если он есть
+if (currentPath.startsWith('/en/')) {
+	currentPath = currentPath.replace(/^\/en/, '');
+} else if (currentPath.startsWith('/ru/')) {
+	currentPath = currentPath.replace(/^\/ru/, '');
+}
+// Убеждаемся что путь начинается с /
+if (!currentPath.startsWith('/')) {
+	currentPath = '/' + currentPath;
+}
+
+// Функция для поиска соответствующего поста на другом языке
+async function findCorrespondingPostUrl(path: string, targetLocale: 'ru' | 'en'): Promise<string | null> {
+	// Проверяем, является ли это страницей поста
+	const postMatch = path.match(/^\/posts\/([^\/]+)\/([^\/]+)\/([^\/]+)/);
+	if (!postMatch) {
+		return null;
+	}
+	
+	const [, category, subcategory, currentSlug] = postMatch;
+	
+	try {
+		const allPosts = await getCollection('posts');
+		
+		// Извлекаем базовое имя из текущего slug (например, "post-1-ru" -> "post-1")
+		const baseName = currentSlug.replace(/-(en|ru)$/, '');
+		
+		// Ищем пост с той же категорией, подкатегорией и базовым именем, но на другом языке
+		const correspondingPost = allPosts.find(p => {
+			if (p.data.lang !== targetLocale || p.data.category !== category || p.data.subcategory !== subcategory) {
+				return false;
+			}
+			const pSlugParts = p.slug.split('/');
+			const pFilename = pSlugParts[pSlugParts.length - 1];
+			const pBaseName = pFilename.replace(/-(en|ru)$/, '');
+			return pBaseName === baseName;
+		});
+		
+		if (correspondingPost) {
+			const slugParts = correspondingPost.slug.split('/');
+			const filename = slugParts[slugParts.length - 1];
+			// Генерируем правильный URL с учетом локали используя getRelativeLocaleUrl
+			return getRelativeLocaleUrl(targetLocale, `posts/${category}/${subcategory}/${filename}`);
+		}
+	} catch (err) {
+		// Если не удалось найти, возвращаем null
+	}
+	
+	return null;
+}
+
+// Для страниц постов находим соответствующий пост на другом языке
+let otherLocaleUrl: string | null = null;
+if (currentPath.startsWith('/posts/')) {
+	otherLocaleUrl = await findCorrespondingPostUrl(currentPath, otherLocale as 'ru' | 'en');
+}
+
+// Генерируем меню из структуры папок categories
+const categoryMenuItems = await generateMenu(currentLocale as 'ru' | 'en');
+
+// Добавляем главную страницу в начало меню
+const navItems = [
+	{
+		name: t.nav.home,
+		slug: '',
+		icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
+		children: [],
+	},
+	...categoryMenuItems,
+];
+
+// Функция для генерации URL с учетом языка
+function getCategoryUrl(categorySlug: string, subcategorySlug?: string): string {
+	if (subcategorySlug) {
+		return getRelativeLocaleUrl(currentLocale, `category/${categorySlug}/${subcategorySlug}`);
+	}
+	return getRelativeLocaleUrl(currentLocale, `category/${categorySlug}`);
+}
+
+// Функция для проверки, является ли иконка SVG path или эмоджи
+function isEmoji(icon?: string): boolean {
+	if (!icon) return false;
+	// Проверяем, является ли это эмоджи (не содержит пробелов и начинается с не-ASCII символа)
+	return /^[\p{Emoji}\p{Symbol}]+$/u.test(icon.trim()) && icon.length <= 10;
+}
+---
+
+<!-- Mobile Menu Overlay - Opens from bottom -->
+<div id="mobile-menu" class="fixed inset-0 z-50 lg:hidden hidden">
+	<!-- Backdrop -->
+	<div class="absolute inset-0 bg-black/70 backdrop-blur-md transition-opacity duration-300" data-mobile-menu-close></div>
+	
+	<!-- Menu Panel - Slides from bottom -->
+	<div class="absolute bottom-0 left-0 right-0 glass-strong border-t border-white/10 rounded-t-3xl overflow-hidden transform transition-transform duration-300 ease-out max-h-[90vh] flex flex-col mobile-menu-panel backdrop-blur-strong">
+		<!-- Handle bar -->
+		<div class="flex justify-center pt-3 pb-2">
+			<div class="w-12 h-1 bg-white/30 rounded-full"></div>
+		</div>
+		
+		<!-- Header -->
+		<div class="px-4 pb-4 border-b border-white/10">
+			<div class="flex items-center justify-between mb-4">
+				<div>
+					<div class="text-xl font-bold text-gradient mb-1">FurnituraHub</div>
+					<div class="text-xs text-gray-400">{t.nav.hardwareCenter}</div>
+				</div>
+			</div>
+			
+			<!-- Search Bar -->
+			<div class="relative mb-4">
+				<input
+					type="search"
+					placeholder={t.common.search}
+					class="w-full px-4 py-2.5 pl-11 glass rounded-xl text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-accent-blue/50 focus:border-accent-blue/50 transition-all backdrop-blur-sm"
+				/>
+				<svg class="absolute left-3.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				</svg>
+			</div>
+			
+			<!-- Controls -->
+			<div class="flex items-center gap-2">
+				{(() => {
+					// Генерируем URL для каждого языка
+					let ruUrl: string;
+					let enUrl: string;
+					
+					if (otherLocaleUrl) {
+						// Для страниц постов используем найденный URL соответствующего поста
+						if (otherLocale === 'ru') {
+							ruUrl = otherLocaleUrl;
+							enUrl = '/en' + currentPath;
+						} else {
+							ruUrl = currentPath;
+							enUrl = otherLocaleUrl;
+						}
+					} else {
+						// Для остальных страниц генерируем URL вручную
+						// Русский (default) = без префикса, Английский = /en
+						ruUrl = currentPath;
+						enUrl = '/en' + currentPath;
+					}
+					
+					const languages = [
+						{ code: 'ru', name: 'Русский', flag: '🇷🇺', url: ruUrl },
+						{ code: 'en', name: 'English', flag: '🇬🇧', url: enUrl },
+					];
+					
+					const currentLang = languages.find(l => l.code === currentLocale) || languages[0];
+					
+					return (
+						<div class="relative flex-1" id="mobile-language-switcher">
+							<button
+								type="button"
+								class="flex items-center gap-2 px-3 py-2 glass rounded-xl hover:bg-white/10 transition-all text-sm w-full mobile-language-switcher-button backdrop-blur-sm"
+								aria-label="Select language"
+								aria-expanded="false"
+								aria-haspopup="true"
+							>
+								<span class="text-lg">{currentLang.flag}</span>
+								<span class="text-gray-200 flex-1 text-left font-medium">{currentLang.name}</span>
+								<svg class="w-4 h-4 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+								</svg>
+							</button>
+							
+							<!-- Dropdown Menu -->
+							<div class="absolute top-full left-0 right-0 mt-2 glass-card rounded-2xl shadow-glass-lg opacity-0 invisible transform translate-y-2 transition-all duration-300 z-50 mobile-language-dropdown backdrop-blur-glass">
+								<div class="py-1">
+									{languages.map((language) => (
+										<a
+											href={language.url}
+											class={`flex items-center gap-3 px-4 py-2.5 text-sm transition-all rounded-lg mx-1 ${
+												language.code === currentLocale
+													? 'bg-accent-blue/20 text-accent-blue font-medium'
+													: 'text-gray-300 hover:bg-white/5 hover:text-white'
+											}`}
+										>
+											<span class="text-lg">{language.flag}</span>
+											<span class="flex-1">{language.name}</span>
+											{language.code === currentLocale && (
+												<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+													<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+												</svg>
+											)}
+										</a>
+									))}
+								</div>
+							</div>
+						</div>
+					);
+				})()}
+				
+				<button
+					class="p-2 glass rounded-xl hover:bg-white/10 transition-all backdrop-blur-sm"
+					aria-label="Chat"
+				>
+					<svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+					</svg>
+				</button>
+				
+				<a
+					href={getRelativeLocaleUrl(currentLocale, 'login')}
+					class="px-4 py-2 glass-button rounded-xl text-white font-medium text-sm backdrop-blur-glass"
+				>
+					{t.common.login}
+				</a>
+			</div>
+		</div>
+		
+		<!-- Navigation -->
+		<nav class="flex-1 overflow-y-auto px-4 py-4">
+			<ul class="space-y-1">
+				{navItems.map((item) => {
+					const isHomePage = item.slug === '';
+					const isActive = isHomePage 
+						? (currentPath === '/' || currentPath === `/${currentLocale}/`)
+						: (currentPath.includes(`/category/${item.slug}`) || 
+						   currentPath.includes(`category/${item.slug}/`) ||
+						   currentPath.includes(`/posts/${item.slug}/`));
+					const hasChildren = item.children && item.children.length > 0;
+					const itemId = `mobile-nav-item-${item.slug}`;
+					
+					// Проверяем, активна ли категория или её подкатегория (включая страницы товаров)
+					const hasActiveChild = hasChildren && item.children.some(child => 
+						currentPath.includes(`/category/${item.slug}/${child.slug}`) || 
+						currentPath.includes(`category/${item.slug}/${child.slug}`) ||
+						currentPath.includes(`/posts/${item.slug}/${child.slug}/`)
+					);
+					const shouldBeExpanded = isActive || hasActiveChild;
+					
+					return (
+						<li class={shouldBeExpanded ? 'expanded' : ''}>
+							<div class="group">
+								<a
+									href={item.slug ? getCategoryUrl(item.slug) : getRelativeLocaleUrl(currentLocale, '/')}
+									class={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-all backdrop-blur-sm ${
+										isActive
+											? 'bg-accent-blue/20 text-accent-blue border border-accent-blue/30'
+											: 'text-gray-300 hover:bg-white/5 hover:text-white glass'
+									}`}
+								>
+									<div class="flex items-center gap-3">
+										{item.icon && isEmoji(item.icon) ? (
+											<span class="text-xl flex-shrink-0">{item.icon}</span>
+										) : item.icon ? (
+											<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={item.icon} />
+											</svg>
+										) : null}
+										<span class="text-sm font-medium">{item.name}</span>
+									</div>
+									{hasChildren && (
+										<button
+											class="mobile-nav-toggle p-1 hover:bg-white/10 rounded transition-colors"
+											data-target={itemId}
+											type="button"
+										>
+											<svg class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+											</svg>
+										</button>
+									)}
+								</a>
+								{hasChildren && (
+									<ul id={itemId} class={shouldBeExpanded ? 'mt-1 ml-8 space-y-1 mobile-nav-children' : 'hidden mt-1 ml-8 space-y-1 mobile-nav-children'}>
+										{item.children.map((child) => {
+											const isChildActive = currentPath.includes(`/category/${item.slug}/${child.slug}`) || 
+											                      currentPath.includes(`category/${item.slug}/${child.slug}`) ||
+											                      currentPath.includes(`/posts/${item.slug}/${child.slug}/`);
+											return (
+												<li>
+													<a
+														href={getCategoryUrl(item.slug, child.slug)}
+														class={`block px-3 py-2 rounded-xl text-sm transition-all backdrop-blur-sm ${
+															isChildActive
+																? 'bg-accent-blue/20 text-accent-blue border border-accent-blue/20'
+																: 'text-gray-400 hover:bg-white/5 hover:text-gray-200 glass'
+														}`}
+													>
+														{child.name}
+													</a>
+												</li>
+											);
+										})}
+									</ul>
+								)}
+							</div>
+						</li>
+					);
+				})}
+			</ul>
+		</nav>
+		
+		<!-- Footer -->
+		<div class="px-4 py-4 border-t border-white/10">
+			<p class="text-xs text-gray-400 mb-4 leading-relaxed">
+				{currentLocale === 'ru' ? (
+					<>
+						Избранные и закрытые публикации будут доступны после{' '}
+						<a href={getRelativeLocaleUrl(currentLocale, 'register')} class="text-accent-blue hover:text-blue-400 transition-colors font-medium">Регистрации</a>
+					</>
+				) : (
+					<>
+						Selected and closed publications will be available after{' '}
+						<a href={getRelativeLocaleUrl(currentLocale, 'register')} class="text-accent-blue hover:text-blue-400 transition-colors font-medium">Registration</a>
+					</>
+				)}
+			</p>
+			<p class="text-xs text-gray-500">
+				{t.sidebar.copyright}
+			</p>
+		</div>
+	</div>
+</div>
+
+<script>
+	document.addEventListener('DOMContentLoaded', () => {
+		const mobileMenu = document.getElementById('mobile-menu');
+		const backdrop = document.querySelector('[data-mobile-menu-close]');
+		const menuPanel = document.querySelector('.mobile-menu-panel');
+		const burgerIcon = document.getElementById('burger-icon');
+		const closeIcon = document.getElementById('close-icon');
+		
+		const closeMenu = () => {
+			if (mobileMenu && menuPanel) {
+				menuPanel.classList.add('translate-y-full');
+				setTimeout(() => {
+					mobileMenu.classList.add('hidden');
+					document.body.style.overflow = '';
+					if (burgerIcon) burgerIcon.classList.remove('hidden');
+					if (closeIcon) closeIcon.classList.add('hidden');
+				}, 300);
+			}
+		};
+		
+		backdrop?.addEventListener('click', closeMenu);
+		
+		// Mobile nav toggles
+		const mobileNavToggles = document.querySelectorAll('.mobile-nav-toggle');
+		mobileNavToggles.forEach((button) => {
+			button.addEventListener('click', (e) => {
+				e.preventDefault();
+				const targetId = button.getAttribute('data-target');
+				const listItem = button.closest('li');
+				const children = listItem?.querySelector('.mobile-nav-children');
+				
+				if (listItem && children) {
+					listItem.classList.toggle('expanded');
+				}
+			});
+		});
+		
+		// Mobile language switcher dropdown
+		const mobileLanguageSwitcher = document.getElementById('mobile-language-switcher');
+		const mobileLanguageButton = mobileLanguageSwitcher?.querySelector('.mobile-language-switcher-button');
+		const mobileLanguageDropdown = mobileLanguageSwitcher?.querySelector('.mobile-language-dropdown');
+		
+		if (mobileLanguageButton && mobileLanguageDropdown) {
+			mobileLanguageButton.addEventListener('click', (e) => {
+				e.stopPropagation();
+				const isOpen = mobileLanguageDropdown.classList.contains('opacity-100');
+				
+				if (isOpen) {
+					mobileLanguageDropdown.classList.remove('opacity-100', 'visible', 'translate-y-0');
+					mobileLanguageDropdown.classList.add('opacity-0', 'invisible', 'translate-y-2');
+					mobileLanguageButton.setAttribute('aria-expanded', 'false');
+					mobileLanguageButton.querySelector('svg')?.classList.remove('rotate-180');
+				} else {
+					mobileLanguageDropdown.classList.remove('opacity-0', 'invisible', 'translate-y-2');
+					mobileLanguageDropdown.classList.add('opacity-100', 'visible', 'translate-y-0');
+					mobileLanguageButton.setAttribute('aria-expanded', 'true');
+					mobileLanguageButton.querySelector('svg')?.classList.add('rotate-180');
+				}
+			});
+			
+			// Close dropdown when clicking outside
+			document.addEventListener('click', (e) => {
+				if (!mobileLanguageSwitcher?.contains(e.target as Node)) {
+					mobileLanguageDropdown.classList.remove('opacity-100', 'visible', 'translate-y-0');
+					mobileLanguageDropdown.classList.add('opacity-0', 'invisible', 'translate-y-2');
+					mobileLanguageButton.setAttribute('aria-expanded', 'false');
+					mobileLanguageButton.querySelector('svg')?.classList.remove('rotate-180');
+				}
+			});
+		}
+	});
+</script>
+
+<style>
+	.mobile-menu-panel {
+		transform: translateY(100%);
+		transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+	
+	.mobile-menu-panel:not(.translate-y-full) {
+		transform: translateY(0);
+	}
+
+	#mobile-menu nav {
+		scrollbar-width: thin;
+		scrollbar-color: #374151 transparent;
+	}
+
+	#mobile-menu nav::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	#mobile-menu nav::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	#mobile-menu nav::-webkit-scrollbar-thumb {
+		background-color: rgba(255, 255, 255, 0.2);
+		border-radius: 3px;
+	}
+	
+	#mobile-menu nav::-webkit-scrollbar-thumb:hover {
+		background-color: rgba(255, 255, 255, 0.3);
+	}
+
+	li.expanded .mobile-nav-children {
+		display: block;
+		animation: slideDown 0.2s ease-out;
+	}
+
+	li.expanded .mobile-nav-toggle svg {
+		transform: rotate(180deg);
+	}
+
+	@keyframes slideDown {
+		from {
+			opacity: 0;
+			transform: translateY(-10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+</style>

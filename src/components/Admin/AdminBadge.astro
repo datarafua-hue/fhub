@@ -1,0 +1,53 @@
+---
+// Admin Badge Component
+// Shows notification count for pending comments
+import { createServerSupabaseClient } from '../../lib/supabase';
+
+const { profile } = Astro.locals;
+
+// Only show for admins
+if (!profile?.is_admin) {
+  return null;
+}
+
+const accessToken = Astro.cookies.get('sb-access-token')?.value;
+const refreshToken = Astro.cookies.get('sb-refresh-token')?.value;
+
+let pendingCount = 0;
+
+// Only fetch if we have valid tokens
+if (accessToken && refreshToken) {
+  try {
+    const supabase = createServerSupabaseClient(accessToken, refreshToken);
+    
+    // Get pending comments count
+    const { count } = await supabase
+      .from('comments')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_approved', false)
+      .eq('is_deleted', false);
+
+    pendingCount = count || 0;
+  } catch (error) {
+    console.error('Error fetching pending comments:', error);
+    pendingCount = 0;
+  }
+}
+---
+
+{pendingCount > 0 && (
+  <a
+    href="/admin/comments?filter=pending"
+    class="relative p-2 bg-white/5 rounded-full hover:bg-white/8 transition-all border border-white/5"
+    aria-label="Pending comments"
+    title={`${pendingCount} комментариев на модерации`}
+  >
+    <svg class="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+    </svg>
+    <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center font-bold">
+      {pendingCount > 9 ? '9+' : pendingCount}
+    </span>
+  </a>
+)}
+

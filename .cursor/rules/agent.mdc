@@ -1,0 +1,221 @@
+---
+alwaysApply: true
+---
+
+PROJECT: FurnituraHub — Astro + TypeScript + Tailwind website
+
+You must create a clean, modern, high-performance Astro project with the structure, layout, and functionality described below.
+Follow the architecture strictly and do not add anything that is not required.
+
+1. Tech stack
+
+Astro (TypeScript, content collections)
+
+TailwindCSS
+
+Dark mode via class strategy
+
+Swiper for the hero slider
+
+i18n with two languages: RU and EN
+
+Global font: SF Pro, sans-serif
+
+Page transitions and smooth UI interactions
+
+2. Global Layout Structure
+
+Create the following components:
+
+src/components/Layout/Header.astro
+
+Starlight-style search bar (smart search)
+
+Right side:
+
+Language switcher (RU/EN)
+
+Theme toggle (dark/light)
+
+Sticky top position
+
+src/components/Layout/Sidebar.astro
+
+Fixed left sidebar with two-level navigation:
+
+Hidden Hinges
+
+Systems
+
+Extensions
+
+OS Versions
+
+Articles
+
+Products
+
+Highlight active section
+
+Support nested categories
+
+src/components/Layout/BaseLayout.astro
+
+Wraps Header + Sidebar + page content
+
+Handles dark mode
+
+3. Home Page Layout
+
+Create src/pages/[lang]/index.astro with:
+
+Hero Section
+
+Large slider using Swiper
+
+3–4 demo slides (image, title, button)
+
+Articles Section
+
+Card component CardArticle.astro
+
+Layout exactly like screenshot:
+
+preview image
+
+tags
+
+title
+
+author
+
+date
+
+views
+
+rating
+
+Products Section
+
+Card component CardProduct.astro
+
+Style same as screenshot blocks
+
+Price, status “In Stock”, logo background, etc.
+
+4. Content Collections
+
+Enable @astrojs/content and create:
+
+src/content/posts/
+
+Supports frontmatter fields:
+
+title: string
+description: string
+seoTitle: string
+seoDescription: string
+tags: string[]
+vesden: number | string
+thickness: number | string
+category: string
+date: string
+author: string
+lang: "ru" | "en"
+
+
+Create 4 demo posts:
+
+2 RU
+
+2 EN
+
+5. Category Pages
+
+Create pages:
+
+/[lang]/category/[slug].astro
+
+
+Features:
+
+list posts of this category
+
+pagination (9 items per page)
+
+filter section:
+
+vesden (weight of door leaf)
+
+thickness
+
+filters read frontmatter of MD files
+
+6. i18n
+
+All pages under /ru/ and /en/
+
+Language switcher must:
+
+keep the current page
+
+but change the language prefix
+
+7. Tailwind Configuration
+
+darkMode: "class"
+
+add SF Pro font
+
+add custom colors:
+
+bg-dark: #121212
+bg-block: #1b1b1b
+accent-blue: #276ef1
+
+
+smooth transitions
+
+rounded-xl
+
+consistent spacing (use 4px grid)
+
+8. UI Rules
+
+Clean, modern, minimalistic styles
+
+Beautiful hover/active states
+
+Smooth scaling effects
+
+Shadow around cards
+
+High contrast for dark mode
+
+Follow Apple-like smoothness
+
+9. Do NOT:
+
+do NOT rewrite Astro core files
+
+do NOT install random packages
+
+do NOT create unused components
+
+do NOT mix React/Vue/Svelte unless explicitly required
+
+do NOT modify Tailwind config unless asked
+
+10. Final Goal
+
+The result must look like the UI from the screenshot:
+
+dynamic sections
+
+elegant layout
+
+stable architecture
+
+ready for expansion (products, documentation, articles)
+
+PROMPT END
