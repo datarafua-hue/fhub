@@ -5,6 +5,7 @@ import CardArticle from '../../../components/CardArticle.astro';
 
 export async function getStaticPaths() {
 	const allBrands = await getCollection('brand');
+	const locales = ['ru', 'en'];
 	
 	// Группируем бренды по slug (удаляем язык из ID)
 	const brandsBySlug = new Map();
@@ -17,10 +18,14 @@ export async function getStaticPaths() {
 		brandsBySlug.get(slug).push(brand);
 	}
 	
-	// Возвращаем уникальные slug
-	return Array.from(brandsBySlug.keys()).map(slug => ({
-		params: { slug }
-	}));
+	// Возвращаем paths для всех локалей
+	const paths = [];
+	for (const slug of brandsBySlug.keys()) {
+		for (const lang of locales) {
+			paths.push({ params: { slug, lang } });
+		}
+	}
+	return paths;
 }
 
 const { lang, slug } = Astro.params;
