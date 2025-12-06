@@ -78,7 +78,10 @@ export const PATCH: APIRoute = async ({ request, cookies }) => {
   // Update comment
   const { data: comment, error } = await supabase
     .from('comments')
-    .update({ content })
+    .update({ 
+      content,
+      ...(original_language && { original_language })
+    })
     .eq('id', id)
     .select('*, profiles(*)')
     .single();
